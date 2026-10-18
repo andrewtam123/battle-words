@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "20 words · Unlimited",
-  "short_name": "20 words",
-  "description": "Twenty anagrams. A fresh challenge whenever you want.",
+  "name": "Battle Words",
+  "short_name": "Battle Words",
+  "description": "Twenty anagrams. Play solo or challenge a friend.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

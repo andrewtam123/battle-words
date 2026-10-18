@@ -1,13 +1,21 @@
 {
-  "name": "20words-unlimited",
+  "name": "battle-words",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "A browser-only, unlimited 20-word anagram game.",
+  "description": "Twenty-word solo games and authoritative two-player anagram battles.",
   "scripts": {
     "start": "node scripts/serve.mjs",
     "test": "node --test",
-    "words": "node scripts/prepare-words.mjs"
+    "words": "node scripts/prepare-words.mjs",
+    "battle:dev": "wrangler dev --ip 127.0.0.1 --port 8787",
+    "battle:check": "wrangler deploy --dry-run --outdir .tmp/worker",
+    "battle:deploy": "wrangler deploy"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.1"
+  }
 }

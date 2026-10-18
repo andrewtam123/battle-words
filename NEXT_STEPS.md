@@ -1,15 +1,16 @@
 # Next steps
 
-**Status: planned; not implemented.** The requested roadmap now contains:
+**Status:** The first Battle Words implementation includes network battles for the existing 20-round game. The remaining roadmap contains:
 
 - Offline caching.
 - A reusable predefined dictionary catalog, supporting custom builds and easy dictionary substitution.
 - Incremental custom-game builds, local saving, sharing/import links, and default 20-word Easy / Medium / Hard builds.
-- Two-player battle mode across devices, with shared words, competitive scoring and network communication.
+- Extending battle mode to future custom builds after the dictionary catalog and builder exist.
+- Graceful handling of Cloudflare usage limits; the exact approach remains undecided.
 
 These are future implementation tasks. **Custom builds replace the earlier standalone Easy / Medium / Hard mode proposal.** Easy, Medium and Hard become default builds using the same builder/playback system. Dictionary configuration remains a supporting task, and offline caching remains planned.
 
-The current game still uses one SCOWL target bank through level 35, an accepted-answer bank through level 70, and the fixed 20-round progression. There is no builder, saved-build library, share/import feature or multiplayer networking yet. Exact dictionary cutoffs/sizes, build-size limits and battle communication/rule details remain to be decided.
+The current game still uses one SCOWL target bank through level 35, an accepted-answer bank through level 70, and the fixed 20-round progression. There is no builder, saved-build library or recipe share/import feature yet. Battle uses the existing fixed game. Exact dictionary cutoffs/sizes and build-size limits remain to be decided.
 
 ## 1. Offline caching
 
@@ -17,11 +18,11 @@ The present app requires an online load; it has no registered service worker or 
 
 ### Desired result
 
-After one successful online visit and completed download, the player can reopen or reload **20 words** without a connection and start unlimited new games on desktop or mobile. Keep the static GitHub Pages deployment and the current game rules and vocabulary.
+After one successful online visit and completed download, the player can reopen or reload **Battle Words** without a connection and start unlimited new games on desktop or mobile. Keep the static GitHub Pages deployment and the current game rules and vocabulary.
 
 Offline play covers solo games, including custom builds when implemented. Battle mode requires a live network connection and is not part of the offline guarantee.
 
-Offline caching stores application files and word banks. It must **not** add game recovery, saved scores/statistics or accounts. The separately requested custom-build feature will persist reusable build definitions locally; a saved build is not an in-progress game. Reloading will still discard active play. The first download needs connectivity, and browser storage clearing/eviction can require another online visit.
+Offline caching stores application files and word banks. It must **not** add game recovery, saved scores/statistics or accounts. The separately requested custom-build feature will persist reusable build definitions locally; a saved build is not an in-progress game. Reloading will still discard active solo play; battle reconnects follow the separate server policy. The first download needs connectivity, and browser storage clearing/eviction can require another online visit.
 
 ### Current code to build on
 
@@ -43,7 +44,7 @@ Use HTTPS in production; localhost is suitable for development. Keep the registr
 
 Maintain an explicit resource inventory and release version. Precache:
 
-- The application entry (`index.html`), `styles.css`, the three existing JS modules and any added offline module.
+- The application entry (`index.html`), `styles.css`, every runtime JS module imported by the app (including the shared core/view and battle modules), and any added offline module. Caching the static battle modules lets Solo load offline; it does not make the battle service available offline.
 - **Both** `data/puzzle-words.json` and `data/words.json` as part of the same release.
 - `manifest.webmanifest` and the SVG plus 180/192/512 PNG icons.
 - `data/SCOWL-LICENSE.txt` and `data/word-source.json`, keeping credits/provenance available offline.
@@ -81,7 +82,7 @@ Run the existing `node --test` suite and add focused tests for the new cache/lif
 7. Smoke-test supported mobile browsers and, where available, launching a home-screen entry offline. Verify narrow/landscape layouts and touch controls remain unchanged.
 8. Once the builder exists, verify creating, saving, loading and playing default/custom builds offline, including builds mixing dictionaries. Export and paste-import links should work with the already cached app and catalog; a recipient who has never loaded the site still needs an initial online visit.
 
-Document the browsers tested and any platform limits. Update `AGENTS.md` and the README to distinguish implemented offline behavior from this plan. Keep `.github/workflows/pages.yml` as the sole deployment workflow; extend checks there only if the offline implementation needs them.
+Document the browsers tested and any platform limits. Update `AGENTS.md` and the README to distinguish implemented offline behavior from this plan. Keep `.github/workflows/pages.yml` as the sole frontend deployment workflow; extend checks there only if the offline implementation needs them.
 
 ## 2. Dictionary catalog and easy substitution
 
@@ -120,7 +121,7 @@ Builds can be named and saved locally, reopened for play/editing, and shared thr
 
 ### Default builds
 
-Ship **20 words - Easy**, **20 words - Medium**, and **20 words - Hard** as built-in recipes using the same schema and playback path as custom builds. Each uses its corresponding predefined dictionary for all rounds and the existing progression:
+Ship **Battle Words - Easy**, **Battle Words - Medium**, and **Battle Words - Hard** as built-in recipes using the same schema and playback path as custom builds. Each uses its corresponding predefined dictionary for all rounds and the existing progression:
 
 `4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10`
 
@@ -134,7 +135,7 @@ Easy/Medium/Hard dictionaries should have progressively broader target vocabular
 2. Validate the complete recipe before saving, importing, expanding or starting it: supported schema version, at least one group, known dictionaries, supported/nonempty length pools, positive integer counts, and explicit limits on groups, total rounds, names and encoded link size. Decide practical limits during implementation; custom games must not be hard-coded to 20 rounds. Count totals before allocating an expanded round list. Explain unsupported or unavailable dictionaries instead of silently substituting them.
 3. Resolve required dictionary assets once and expand the groups into an immutable per-round plan. Every round binds its length, target pool and accepted-answer policy. Prefer a shared broad accepted dictionary for compatible Easy/Medium/Hard profiles; for other catalog entries use the active round's configured accepted bank. Do not implicitly union unrelated dictionaries or narrow acceptance simply because the target dictionary is easier.
 4. Refactor `engine.js` to take a round plan instead of using global `WORD_LENGTHS` for every game. Preserve the existing progression as a default-build constant. Draw all of the build's words upfront, using one `Date.now()` seed and uniform per-length/per-dictionary sampling with replacement, before scrambling consumes randomness. Freeze the active recipe/pools so editing a saved build cannot change a running game.
-5. Make UI progress, current length, final-round detection, result count, perfect-score logic and score denominator derive from the active plan. Audit static HTML instructions and the fixed results-heading threshold as well as `app.js`'s `WORD_LENGTHS` references. Keep branding as **20 words**, and clearly label custom builds with their actual totals. Preserve 30 seconds per word, existing tile-removal behavior, button-only shuffle, pause and results review.
+5. Make UI progress, current length, final-round detection, result count, perfect-score logic and score denominator derive from the active plan. Audit static HTML instructions and the fixed results-heading threshold as well as `app.js`'s `WORD_LENGTHS` references. Keep branding as **Battle Words**, and clearly label custom builds with their actual totals. Preserve 30 seconds per word, existing tile-removal behavior, button-only shuffle, pause and results review.
 6. Keep builder/storage/link handling outside the pure engine. Load and validate all required banks before starting the timer, and guard asynchronous build/dictionary changes against stale responses. Test rendering beyond 20 rounds at mobile sizes rather than assuming the current 20-cell layout is sufficient.
 
 ### Save builds locally
@@ -171,42 +172,24 @@ Before implementation, settle the Easy/Medium/Hard dictionary definitions, initi
 
 ## 4. Two-player battle mode
 
-### Required behavior
+The first implementation now covers the existing 20 rounds, with a separate Cloudflare Worker and one SQLite-backed Durable Object per match. See [BATTLE_SETUP.md](BATTLE_SETUP.md) for the implemented rules, deployment, persistence and reconnect behavior. Deployment still requires configuring the owner's Cloudflare account and public API URL.
 
-Two people play on different devices against **the same set of words**. For each word, the first player to submit a valid answer earns **one point**; the other player cannot also score for that round. The player with the most points at the end wins. This requires live communication between the devices, not just a link containing the same build or seed.
+The agreed rules supersede the earlier open proposals: shared 30-second deadlines; strictly less than 200 ms receipt separation ties; no points for tied rounds; two-second answer reveal; equal final scores draw; no battle pause or disconnect forfeits; and matches continue through completion without either player present. Invalid answers are checked locally and claims are revalidated by the authority. All target words and shuffle arrangements are prepared before play. Completed room links provide public results with no automatic expiry. Browser-local names and seat credentials support same-browser reconnects; no private recovery link exists.
 
-Use a selected default or custom build as the match recipe. Draw its complete ordered word sequence **once per match**, then use that sequence for both players. Preserve uniform sampling with replacement; repeated target spellings are separate rounds with separate point opportunities. Freeze the build, dictionary versions and accepted-answer policies for the match. Existing valid alternative anagrams should count for either player.
+Future work is integration with the dictionary catalog and custom builds, after those features are implemented. Freeze the selected recipe and dictionary versions for each match; preserve authoritative arbitration and keep future words private. Ordinary reusable recipe links remain separate from battle room links. Solo must stay independent of the network service.
 
-### Proposed match flow and open rules
+Before a large public launch, load-test concurrent rooms and establish operational quotas, abuse controls, monitoring and a backup/export policy for retained results. The initial friends-and-family deployment does not include accounts, rankings, spectator access during live matches, or a separate archive service.
 
-Provide Create battle, an invitation link or room code, Join, and a ready state for both players. Battle invitations identify a live session and remain distinct from reusable build export/import links. Show connection/opponent status, both scores and a shared final result.
+## 5. Graceful handling of Cloudflare usage limits
 
-The proposed first version uses synchronized rounds: both players receive the same letters and initial arrangement, begin together, and move to the next word after the first valid answer is confirmed. Retain a shared 30-second deadline; if neither solves in time, award no point and advance both players. An equal final score would be a draw. **Round progression, timing and draw handling are proposals to settle before implementation**, not additional rules already specified by the user.
+**TODO — design undecided.** Gracefully handle exhausted Cloudflare usage limits in battle mode. This is a requested future task, not implemented quota handling or a decision about a particular retry, monitoring, or hosting strategy.
 
-Preserve selected-letter removal and button-only, once-per-round shuffle; each player's shuffle should affect only their own arrangement. Define battle-specific pause, background-tab and disconnect behavior. The current solo auto-pause must not independently freeze a shared match. Decide any reconnect grace period, abandonment/forfeit policy and whether a coordinated pause is allowed.
+The current service has general connection/storage failure safeguards, but no quota-specific handling. The browser assumes API responses are JSON and automatically reconnects with a delay capped at eight seconds. Storage failures prevent acknowledgements of unsaved claims; alarm rescheduling also depends on storage and may fail during an extended outage. Saved state can catch up to elapsed deadlines when processing succeeds again, but submissions that could not be saved cannot be recovered.
 
-### Communication and scoring authority
-
-Keep the frontend on GitHub Pages if desired. [GitHub Pages hosts static files](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages); a live match coordinator needs a separate network service or another explicit communication architecture. A small authoritative service with a [WebSocket connection](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API) is the proposed starting point. Transport, provider, hosting and operating costs remain undecided; no service is being provisioned as part of this roadmap update.
-
-One authority must validate answers against the active round's letters and accepted dictionary, determine claim order, award at most one point, and broadcast the same outcome to both players. Recommended arbitration is the first valid submission received by that authority before its deadline. Device clocks or client-reported solve times must not decide the winner. Arrival order is affected by network latency, so this is an explicit rule to agree on, not a guarantee of measuring who physically solved first.
-
-The coordinator should draw the words once using the existing time-seeded selection policy, retain the sequence, and send each round's puzzle to both clients. Do not seed each device independently or rely on their shuffle/input histories staying identical. Establish shared round start/deadline messages after both clients are ready. Avoid sending future targets or the full generation seed to clients ahead of play.
-
-Keep transport and room lifecycle outside the pure game engine; reuse deterministic word/answer rules while making match outcomes authoritative. Identify every message by match and round, and process scoring/advancement atomically so duplicate, late or competing claims cannot award extra points. Handle stale events and app/catalog version mismatches explicitly. Restrict a room to its two participants and distinguish joining from reconnecting.
-
-Transient room state is needed for coordination. Any brief reconnect/resynchronization should use the current authoritative match state; its policy remains open. This does not add local active-game recovery, durable match history, accounts, rankings or saved scores. Expire abandoned rooms and keep solo play available when the battle service is unavailable. Offline caching must never replay stale match responses as live state.
-
-### Acceptance checks
-
-- On two separate devices, join one match and verify identical words/order, synchronized rounds, both scores and final results. Cover default and mixed-dictionary custom builds.
-- Race valid submissions, including different valid anagrams of the same letters; exactly one point is awarded. Invalid, duplicate, late and previous-round claims must not change finalized results.
-- Verify the chosen start/deadline, no-solver timeout, equal-score and latency/arbitration rules with controlled clocks and delayed/reordered messages.
-- Exercise tab hiding, disconnect/reconnect, leaving, room expiry, duplicate joins, service failure and version mismatches under the selected policies. Both clients must converge on the same match state or receive a clear match-ended/error state.
-- Check touch/keyboard controls and opponent/score updates on mobile. Confirm solo games, saved builds and planned offline solo play remain usable without the battle service.
+Before implementing, decide the player-facing message and available actions, retry behavior, treatment of affected live matches, recovery after a prolonged limit, and whether usage monitoring or alerts are needed. Account for failures returned by Cloudflare before our Worker runs, including non-JSON or browser-blocked responses. Preserve solo independence and existing persisted results. The desired behavior and its tests should follow those decisions; no automatic upgrade, spending policy, or change to match rules has been chosen.
 
 ## Coordination between these tasks
 
-The dictionary catalog is the foundation for custom builds and their Easy/Medium/Hard defaults. Offline caching can be implemented independently against current assets, but its resource inventory and readiness checks must include the catalog and builder when they ship. Saved recipes are separate from both cached application files and transient game state. Keep current gameplay and SCOWL banks unchanged during planning; the custom-build implementation will deliberately generalize fixed lengths/counts while preserving the original progression in default recipes.
+The dictionary catalog is the foundation for custom builds and their Easy/Medium/Hard defaults. Offline caching can be implemented independently against current assets, but its resource inventory and readiness checks must include the catalog and builder when they ship. Saved recipes are separate from cached application files and the server-persisted battle state and results. Keep current gameplay and SCOWL banks unchanged during planning; the custom-build implementation will deliberately generalize fixed lengths/counts while preserving the original progression in default recipes.
 
 Offline caching, dictionary configuration and custom builds can remain entirely static. Battle mode adds live network communication and shared match state; keep that dependency separate so solo play does not depend on the battle service. The frontend can remain on GitHub Pages.

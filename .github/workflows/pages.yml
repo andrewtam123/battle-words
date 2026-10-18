@@ -18,7 +18,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+      - run: npm ci
       - run: npm test
+      - run: npm run battle:check
+      - name: Configure battle service
+        if: github.event_name != 'pull_request'
+        run: node scripts/configure-battle.mjs
+        env:
+          BATTLE_API_URL: ${{ vars.BATTLE_API_URL }}
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:

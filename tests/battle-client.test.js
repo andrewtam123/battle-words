@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { BattleClient } from '../dist/js/battle-client.js';
+import { roundFeedback } from '../dist/js/battle-feedback.js';
+import { PROTOCOL_VERSION, DICTIONARY_VERSION } from '../dist/js/battle-protocol.js';
+
+const storage = () => { const map = new Map(); return { getItem: key => map.get(key), setItem: (key,value) => map.set(key,value) }; };
+const id = 'a'.repeat(32);
+
+test('pending words have no outcome; final feedback distinguishes wins, ties and late correct losses', () => {
+  assert.deepEqual(roundFeedback(null,0,'care'), {appearance:'',text:''});
+  assert.equal(roundFeedback({outcome:'win',winner:0},0,'care').appearance, 'correct');
+  assert.equal(roundFeedback({outcome:'tie',winner:null},0,'care').appearance, 'tie');
+  assert.deepEqual(roundFeedback({outcome:'win',winner:1},0,'care'), {appearance:'lost',text:'Almost!'});
+  assert.equal(roundFeedback({outcome:'timeout',winner:null},0,'').appearance, 'timeout');
+});
+
+test('credentials are saved before a join request and names are independent of identity', async () => {
+  const store = storage();
+  let credential;
+  const client = new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'test:',fetchImpl:async (url,options) => {
+    const body=JSON.parse(options.body); credential=body.credential;
+    assert.equal(store.getItem(`test:room:${id}`),credential);
+    assert.equal(body.name,'Alex');
+    return Response.json({seat:1,state:{id}});
+  }});
+  await client.join(id,' Alex ');
+  const restored = new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'test:'});
+  assert.equal(restored.name,'Alex');
+  assert.equal(restored.credential(id),credential);
+  assert.notEqual(restored.credential('b'.repeat(32)),credential);
+});
+
+test('a lost create response retries the same room and saved credential', async () => {
+  const requests=[];
+  const client=new BattleClient({apiUrl:'https://example.test',storage:storage(),fetchImpl:async (url,options)=>{
+    requests.push([url,JSON.parse(options.body).credential]);
+    if(requests.length===1) throw new TypeError('Network failed');
+    return Response.json({seat:0,state:{id:'test'}});
+  }});
+  await assert.rejects(client.create('Alex'));
+  await client.create('Alex');
+  assert.deepEqual(requests[0],requests[1]);
+});
+
+test('blocked local storage retains a usable seat for this page without claiming persistence', () => {
+  const client=new BattleClient({apiUrl:'https://example.test',storage:{getItem(){throw new Error();},setItem(){throw new Error();}}});
+  const credential=client.credential(id);
+  assert.equal(client.credential(id),credential);
+  assert.equal(client.storageAvailable,false);
+});
+
+test('reconnect resends one pending submission with its original ID and drops it on round advancement', () => {
+  const sent=[];
+  const client=new BattleClient({apiUrl:'https://example.test',storage:storage(),now:()=>1000});
+  client.roomId=id;
+  client.socket={readyState:1,send:message=>sent.push(JSON.parse(message))};
+  client.submit(0,'care','fixed-id');
+  const restoredSocket={readyState:1,send:message=>sent.push(JSON.parse(message))};
+  client.socket=restoredSocket;
+  const state={id,protocolVersion:PROTOCOL_VERSION,dictionaryVersion:DICTIONARY_VERSION,serverNow:1000,index:0,phase:'playing',ownSubmission:null};
+  client.acceptState(state,restoredSocket);
+  client.acceptState(state,restoredSocket);
+  assert.equal(sent.length,2);
+  assert.deepEqual(sent[0],sent[1]);
+  client.acceptState({...state,index:1},restoredSocket);
+  assert.equal(client.pending,null);
+});

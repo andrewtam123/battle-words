@@ -1,114 +1,13 @@
-/** Pure game rules. This module has no browser, storage, or network dependencies. */
-export const WORD_LENGTHS = Object.freeze([
-  4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10,
-]);
-export const ROUND_MS = 30_000;
-const UINT32_RANGE = 0x1_0000_0000;
+/** Solo state machine; reusable puzzle rules live in game-core.js. */
+import {
+  WORD_LENGTHS, ROUND_MS, createRng, drawWords, scrambledTiles,
+  entryWord, selectTileIds, tileForLetter, isValidAnswer,
+} from './game-core.js';
 
-/** Deterministic, non-cryptographic xoshiro128** generator, seeded by a timestamp. */
-export function createRng(seed) {
-  if (!Number.isSafeInteger(seed)) {
-    throw new TypeError('The random seed must be a safe integer.');
-  }
-  // Hash the whole timestamp so its high bits participate too.
-  let hash = 0x811c9dc5;
-  for (const character of String(seed)) {
-    hash = Math.imul(hash ^ character.charCodeAt(0), 0x01000193) >>> 0;
-  }
-  const seedWord = () => {
-    hash = (hash + 0x9e3779b9) >>> 0;
-    let value = Math.imul(hash ^ (hash >>> 16), 0x21f0aaad);
-    value = Math.imul(value ^ (value >>> 15), 0x735a2d97);
-    return (value ^ (value >>> 15)) >>> 0;
-  };
-  let a = seedWord();
-  let b = seedWord();
-  let c = seedWord();
-  let d = seedWord();
-  if (!(a | b | c | d)) a = 1;
-  const rotateLeft = (value, bits) =>
-    ((value << bits) | (value >>> (32 - bits))) >>> 0;
-
-  return {
-    nextUint32() {
-      const result = Math.imul(rotateLeft(Math.imul(b, 5), 7), 9) >>> 0;
-      const temporary = b << 9;
-      c ^= a;
-      d ^= b;
-      b ^= c;
-      a ^= d;
-      c ^= temporary;
-      d = rotateLeft(d, 11);
-      return result;
-    },
-  };
-}
-
-/** Rejection sampling avoids the bias of simply taking a random integer modulo n. */
-export function randomIndex(rng, length) {
-  if (!Number.isInteger(length) || length < 1 || length > UINT32_RANGE) {
-    throw new RangeError('A random selection requires between 1 and 2^32 items.');
-  }
-  const limit = UINT32_RANGE - (UINT32_RANGE % length);
-  let value;
-  do {
-    value = rng.nextUint32();
-  } while (value >= limit);
-  return value % length;
-}
-
-function drawWords(pools, rng) {
-  return WORD_LENGTHS.map((length) => {
-    const pool = pools[length];
-    if (!Array.isArray(pool) || pool.length === 0) {
-      throw new RangeError(`The ${length}-letter word pool is empty or missing.`);
-    }
-    const word = pool[randomIndex(rng, pool.length)];
-    if (typeof word !== 'string' || word.length !== length || !/^[a-z]+$/.test(word)) {
-      throw new TypeError(`The ${length}-letter word pool contains an invalid word.`);
-    }
-    return word;
-  });
-}
-
-/** Twenty independent, uniform word draws with replacement; no group weighting. */
-export function chooseWords(pools, seed = Date.now()) {
-  return drawWords(pools, createRng(seed));
-}
-
-/**
- * Shuffle tiles, preserving IDs when previous tiles are supplied. Avoid the target
- * spelling and visibly change the previous order whenever a different order exists.
- */
-export function scrambledTiles(word, rng, previous) {
-  const source = previous
-    ? previous.map((tile) => ({ ...tile }))
-    : Array.from(word, (letter, id) => ({ id, letter }));
-  const previousLetters = previous?.map((tile) => tile.letter).join('');
-  const suitable = (tiles) => {
-    const letters = tiles.map((tile) => tile.letter).join('');
-    return letters !== word && letters !== previousLetters;
-  };
-  let tiles = source;
-  // The limit also makes this helper terminate with a pathological test RNG.
-  for (let attempt = 0; attempt < 16; attempt += 1) {
-    tiles = source.map((tile) => ({ ...tile }));
-    for (let index = tiles.length - 1; index > 0; index -= 1) {
-      const other = randomIndex(rng, index + 1);
-      [tiles[index], tiles[other]] = [tiles[other], tiles[index]];
-    }
-    if (suitable(tiles)) return tiles;
-  }
-  for (let first = 0; first < tiles.length; first += 1) {
-    for (let second = first + 1; second < tiles.length; second += 1) {
-      const candidate = tiles.map((tile) => ({ ...tile }));
-      [candidate[first], candidate[second]] = [candidate[second], candidate[first]];
-      if (suitable(candidate)) return candidate;
-    }
-  }
-  // Identical-letter inputs have no different visible permutation.
-  return tiles;
-}
+// Preserve the original engine module's public API for existing callers.
+export {
+  WORD_LENGTHS, ROUND_MS, createRng, randomIndex, chooseWords, scrambledTiles,
+} from './game-core.js';
 
 /**
  * Synchronous state machine. Every action returns a defensive snapshot. Call tick()
@@ -206,9 +105,7 @@ export class GameEngine {
   }
 
   #refreshEntry() {
-    this.#state.entry = this.#state.selectedIds
-      .map((id) => this.#state.tiles.find((tile) => tile.id === id).letter)
-      .join('');
+    this.#state.entry = entryWord(this.#state.tiles, this.#state.selectedIds);
   }
 
   selectTile(id) {
@@ -217,17 +114,10 @@ export class GameEngine {
     const tile = this.#state.tiles.find((tile) => tile.id === id);
     if (!tile) return this.snapshot();
     this.#state.invalidEntry = '';
-    const existing = this.#state.selectedIds.indexOf(id);
-    if (existing >= 0) {
-      // Repeated letters erase from the final occurrence of the character,
-      // even when the player clicks an earlier physical tile of that letter.
-      this.#state.selectedIds.splice(this.#state.entry.lastIndexOf(tile.letter));
-    } else {
-      this.#state.selectedIds.push(id);
-    }
+    this.#state.selectedIds = selectTileIds(this.#state.tiles, this.#state.selectedIds, id);
     this.#refreshEntry();
     if (this.#state.selectedIds.length === this.#state.tiles.length) {
-      if (this.#accepted.has(this.#state.entry) || this.#state.entry === this.#state.words[this.#state.index]) {
+      if (isValidAnswer(this.#state.entry, this.#state.tiles, this.#accepted, this.#state.words[this.#state.index])) {
         this.#complete(true);
       } else {
         this.#state.invalidEntry = this.#state.entry;
@@ -241,11 +131,8 @@ export class GameEngine {
 
   typeLetter(letter) {
     this.#syncClock();
-    if (this.#state.status !== 'playing' || typeof letter !== 'string') return this.snapshot();
-    const normalized = letter.toLowerCase();
-    const tile = this.#state.tiles.find(
-      (candidate) => candidate.letter === normalized && !this.#state.selectedIds.includes(candidate.id),
-    );
+    if (this.#state.status !== 'playing') return this.snapshot();
+    const tile = tileForLetter(this.#state.tiles, this.#state.selectedIds, letter);
     return tile ? this.selectTile(tile.id) : this.snapshot();
   }
 

@@ -1,12 +1,12 @@
-# 20 words · Unlimited
+# Battle Words
 
-A mobile-friendly, browser-only anagram game with 20 words per game, inspired by [18words](https://18words.com/). This is an independent project and is not affiliated with the original game. Play as many games as you like. All gameplay runs on the device; hosting only serves the files in `dist/`. There is no backend, database, package installation, or runtime dependency.
+A mobile-friendly anagram game with 20 words per game, inspired by [18words](https://18words.com/). This is an independent project and is not affiliated with the original game. Play unlimited solo games or invite a friend to a two-player battle. Solo runs entirely in the browser. Battle uses an authoritative Cloudflare service while GitHub Pages continues to serve the static frontend in `dist/`.
 
-For agent handoff, see [AGENTS.md](AGENTS.md). [NEXT_STEPS.md](NEXT_STEPS.md) describes planned offline caching, a predefined dictionary catalog, incremental custom builds with local saves and share/import links, and two-player battle mode over a network. Built-in 20-word Easy / Medium / Hard builds replace the earlier standalone difficulty-mode proposal. Battle will use shared words and award each round's point to its first valid solver; it will require live communication in addition to static hosting. These features are not implemented yet.
+For agent handoff, see [AGENTS.md](AGENTS.md). For battle hosting, local development, rules and persistence, see [BATTLE_SETUP.md](BATTLE_SETUP.md). [NEXT_STEPS.md](NEXT_STEPS.md) covers the remaining offline caching, dictionary catalog and custom-build roadmap. Those features are not implemented; the first battle version uses the existing 20-round game and vocabulary.
 
 ## Run locally
 
-Use Node.js 20 or newer:
+Use Node.js 22 or newer for the project and Cloudflare development tools. Static solo preview and the dependency-free Node tests also work on Node 20:
 
 ```sh
 node scripts/serve.mjs
@@ -26,7 +26,9 @@ Then open [localhost:4173/20words/](http://localhost:4173/20words/). Run the aut
 node --test
 ```
 
-## Game rules and random selection
+For local battles, run `npm ci` once, then `npm run battle:dev` in another terminal alongside the static preview server. The frontend uses the local Worker on port 8787 automatically. Use two browser profiles for two players. Online battle deployment requires your Cloudflare account and a configured public API URL; see [the setup guide](BATTLE_SETUP.md).
+
+## Solo rules and random selection
 
 - Every game has exactly 20 rounds, in this fixed length sequence: `4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10` (two 4-letter words, five 5-letter words, six 6-letter words, three 7-letter words, two 8-letter words, one 9-letter word, and one 10-letter word).
 - Each round starts with 30 seconds. Use every tile once to make a word. A valid complete answer advances automatically; invalid answers clear for another attempt while time continues. A timeout shows an answer and records a miss.
@@ -38,11 +40,21 @@ Each new game seeds one deterministic **xoshiro128\*\*** generator with `Date.no
 
 Any word in the accepted vocabulary made from exactly the available letters counts, including alternative anagrams. The selected target remains the answer revealed after a timeout.
 
+## Battle rules
+
+Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player.
+
+The authority's first valid receipt wins, unless the other player's valid answer arrives **strictly less than 200 ms later**, in which case the round ties and neither scores. Both must arrive **before** the shared 30-second deadline. No provisional winner is shown to either player. Invalid answers get immediate local feedback; the server still verifies submitted claims. A valid entry stays filled until the result: green for a win, grey for a tie, or red with “Almost!” for a correct answer that lost.
+
+Both players see an answer for two seconds after each round. The most wins after 20 rounds wins the match; equal scores draw. Battle never pauses, including when Help is open or both players disconnect. Unstarted rooms expire after 30 minutes. Finished room links show public results with no automatic expiry and can be viewed by any number of people.
+
 ## Mobile and storage
 
 The responsive interface supports touch, portrait and landscape layouts, and hardware keyboards. It does not require opening a phone's keyboard. The manifest and icons support an optional home-screen entry where the browser provides that feature.
 
-There is **no service worker or offline caching feature**, and offline launch is not guaranteed. An online visit loads the static files and dictionary; gameplay makes no further server requests. Games remain in memory only. Refreshing or closing the page discards the current game. There are no saved scores, statistics, settings, game recovery, or accounts.
+There is **no service worker or offline caching feature**, and offline launch is not guaranteed. Loaded solo gameplay makes no further server requests and remains in memory only; refreshing or closing the page discards that solo game. There are no accounts, rankings or saved solo statistics.
+
+Battle requires a connection. The browser remembers your display name and a private room credential, allowing the same browser to rejoin through the shared room link. Names are not identity. Clearing storage or changing browsers loses the reserved seat; there is no private recovery link. A second tab using the same seat takes control. Authoritative battle state and final results are stored on the service, so the match continues with nobody connected and the results remain available afterward.
 
 ## GitHub Pages
 
@@ -53,7 +65,7 @@ The repository is [andrewtam123/20words](https://github.com/andrewtam123/20words
 3. Run the included **Check and publish GitHub Pages** workflow, or push another commit to `main`.
 4. Open the Pages URL shown by the completed deployment.
 
-The workflow tests the project and uploads `dist/` unchanged. Pull requests run checks without publishing. Relative asset paths, module-relative dictionary loading, and the manifest's relative scope support repository URLs such as `https://username.github.io/20words/`, as well as a domain root. Any static host can serve the contents of `dist/`; no build step is required.
+The workflow tests the project, validates the backend bundle, optionally inserts the public `BATTLE_API_URL` repository variable into the frontend configuration, and uploads `dist/`. Pull requests run checks without publishing. Relative asset paths, module-relative dictionary loading, and the manifest's relative scope support repository URLs such as `https://username.github.io/20words/`, as well as a domain root. Any static host can serve the frontend without compilation. The separate, manually dispatched `battle.yml` workflow deploys the Cloudflare service when its account secrets have been configured. Renaming the product to Battle Words does not rename the GitHub repository or its existing Pages path.
 
 ## Word bank and credits
 
@@ -91,10 +103,19 @@ The archive SHA-256 is `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba2
 
 ## Structure and future changes
 
-- `dist/js/engine.js`: random selection, tile handling, rules, and timing, independent of the browser and data loading.
+- `dist/js/game-core.js`: shared word selection, scrambling, tile entry and answer validation, independent of browser, network and storage.
+- `dist/js/engine.js`: solo state transitions, timing, pause and results, using the shared core.
+- `dist/js/game-view.js`: shared answer/tile/timer rendering and keyboard filtering for both modes.
 - `dist/js/app.js`: screens, touch/keyboard controls, lifecycle events, and feedback.
+- `dist/js/battle-rules.js`: pure authoritative match transitions, arbitration and safe projections.
+- `dist/js/battle-client.js` and `battle-ui.js`: browser connection, local input and battle screens.
+- `dist/js/battle-feedback.js`: battle-specific outcome feedback.
+- `dist/js/battle-protocol.js` and `battle-config.js`: shared version contract and public service URL.
+- `server/`: Cloudflare Worker routing, room authentication, WebSockets and durable storage/alarms; `wrangler.jsonc`: backend deployment configuration.
 - `dist/js/word-bank.js`: one place for loading and validating the bundled vocabularies. Level-35 puzzle pools and level-70 accepted answers are passed separately to the engine, allowing further target pruning while preserving legitimate alternative answers.
 - `dist/data/`: target and accepted-answer word banks, provenance, and licensing; `dist/styles.css` and `dist/assets/` contain presentation resources.
 - `scripts/`: local server and reproducible word-data preparation; `tests/`: engine and data checks.
 
 Offline support can later add a service worker that caches these same-origin static resources, including the dictionary, without changing the engine. Cache versions, download-completion feedback, and update behavior would belong to that future feature. No service-worker stub is installed now.
+
+Graceful handling of Cloudflare usage limits is also a planned task. Its exact approach remains undecided; see [NEXT_STEPS.md](NEXT_STEPS.md).
