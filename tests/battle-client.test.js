@@ -50,6 +50,56 @@ test('blocked local storage retains a usable seat for this page without claiming
   assert.equal(client.storageAvailable,false);
 });
 
+test('renamed Pages scope recovers cached names and seats without removing legacy values', () => {
+  const store = storage();
+  const credential = 'b'.repeat(32);
+  store.setItem('battle-words:/20words/:name', 'Alex');
+  store.setItem(`battle-words:/20words/:room:${id}`, credential);
+  const client = new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'battle-words:/battle-words/:'});
+  assert.equal(client.name, 'Alex');
+  assert.equal(client.hasCredential(id), true);
+  assert.equal(client.credential(id), credential);
+  for (const prefix of ['battle-words:/20words/:', 'battle-words:/battle-words/:']) {
+    assert.equal(store.getItem(`${prefix}name`), 'Alex');
+    assert.equal(store.getItem(`${prefix}room:${id}`), credential);
+  }
+});
+
+test('Pages migration preserves newer values and never imports into other scopes', () => {
+  const store = storage();
+  const credential = 'c'.repeat(32);
+  store.setItem('battle-words:/20words/:name', 'Alex');
+  store.setItem(`battle-words:/20words/:room:${id}`, 'b'.repeat(32));
+  store.setItem('battle-words:/battle-words/:name', 'Taylor');
+  store.setItem(`battle-words:/battle-words/:room:${id}`, credential);
+  const client = new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'battle-words:/battle-words/:'});
+  assert.equal(client.name, 'Taylor');
+  assert.equal(client.credential(id), credential);
+  client.saveName('');
+  assert.equal(new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'battle-words:/battle-words/:'}).name, '');
+  for (const prefix of ['battle-words:/:', 'battle-words:/other/:', 'custom:']) {
+    const unrelated = new BattleClient({apiUrl:'https://example.test',storage:store,prefix});
+    assert.equal(unrelated.name, '');
+    assert.equal(unrelated.hasCredential(id), false);
+    assert.equal(store.getItem(`${prefix}room:${id}`), undefined);
+  }
+});
+
+test('a failed migration write retains recovered credentials in memory and reports unavailable storage', () => {
+  const store = storage();
+  const credential = 'b'.repeat(32);
+  store.setItem('battle-words:/20words/:name', 'Alex');
+  store.setItem(`battle-words:/20words/:room:${id}`, credential);
+  store.setItem = () => { throw new Error('Storage quota exceeded'); };
+  const client = new BattleClient({apiUrl:'https://example.test',storage:store,prefix:'battle-words:/battle-words/:'});
+  assert.equal(client.name, 'Alex');
+  assert.equal(client.credential(id), credential);
+  assert.equal(client.storageAvailable, false);
+  store.getItem = () => { throw new Error('Storage blocked'); };
+  assert.equal(client.read('name'), 'Alex');
+  assert.equal(client.credential(id), credential);
+});
+
 test('reconnect resends one pending submission with its original ID and drops it on round advancement', () => {
   const sent=[];
   const client=new BattleClient({apiUrl:'https://example.test',storage:storage(),now:()=>1000});

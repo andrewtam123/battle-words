@@ -36,7 +36,7 @@ Offline caching stores application files and word banks. It must **not** add gam
 
 #### Register within the hosted application directory
 
-Add `dist/sw.js` and a small registration/lifecycle module under `dist/js/`. Resolve the worker URL relative to the module/site directory so the same files work at `/` and `/20words/`; do not hard-code `/sw.js` or intercept other GitHub Pages projects. Use feature detection and preserve online gameplay if registration fails or service workers are unavailable.
+Add `dist/sw.js` and a small registration/lifecycle module under `dist/js/`. Resolve the worker URL relative to the module/site directory so the same files work at `/` and `/battle-words/`; do not hard-code `/sw.js` or intercept other GitHub Pages projects. Use feature detection and preserve online gameplay if registration fails or service workers are unavailable.
 
 Use HTTPS in production; localhost is suitable for development. Keep the registration separate from engine rules and dictionary validation. The [service-worker lifecycle and secure-context requirements](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers) govern installation and activation.
 
@@ -73,7 +73,7 @@ Revise the About dialog's current "internet connection is required to load the g
 
 Run the existing `node --test` suite and add focused tests for the new cache/lifecycle behavior. Browser verification is required; mocked network tests alone cannot establish offline launch support.
 
-1. Test clean online installation at both `/` and `/20words/`, with no missing assets or scope errors. Confirm readiness waits for both dictionaries and all required files.
+1. Test clean online installation at both `/` and `/battle-words/`, with no missing assets or scope errors. Confirm readiness waits for both dictionaries and all required files.
 2. With the server/network unavailable, reload and close/reopen the cached URL. Start multiple games, complete all 20 rounds including the 9- and 10-letter words, and check alternative answers, pause, shuffle, results and offline license access.
 3. Confirm reload discards the active game and no answers, remaining time, seed or scores are persisted. Once local build saving is implemented, confirm saved build definitions survive reload and cache updates independently of active play.
 4. Interrupt the initial download or fail one dictionary request. Verify there is no false readiness claim; online play/retry still works. On a failed update, the previous complete offline release remains usable.

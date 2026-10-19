@@ -2,7 +2,7 @@
 
 ## Purpose and current scope
 
-This repository is **Battle Words**, a mobile-friendly anagram game with a static solo frontend and a Cloudflare battle service, inspired by 18words. The local folder remains `18words` and the repository/Pages path remains `20words`; the product name is **Battle Words**. Preserve the original-game attribution where it is a historical credit.
+This repository is **Battle Words**, a mobile-friendly anagram game with a static solo frontend and a Cloudflare battle service, inspired by 18words. The local folder remains `18words`; the GitHub repository and Pages path are `battle-words`; the product name is **Battle Words**. Preserve the original-game attribution where it is a historical credit.
 
 Read this file, [README.md](README.md), and the relevant implementation before changing behavior. [NEXT_STEPS.md](NEXT_STEPS.md) contains the requested future features: **offline caching**, a **predefined dictionary catalog/easy dictionary substitution**, **incremental custom builds with local saving and share/import links**, and extending the implemented **two-player battle mode** to future custom builds. Custom builds replace the earlier standalone difficulty-mode proposal; 20-word Easy/Medium/Hard recipes will be built-in defaults. These are plans, not instructions to implement features during unrelated tasks. Dictionary cutoffs/sizes, the initially selected default build, and build/link size limits remain open. Battle rules and hosting are documented in [BATTLE_SETUP.md](BATTLE_SETUP.md).
 
@@ -47,7 +47,7 @@ The subsequent shared-core/view refactor has **85 passing Node tests**, includin
 | `tests/` | Built-in Node tests for rules, dictionary integrity and loading. |
 | `.github/workflows/pages.yml` | Test and publish the contents of `dist/` to GitHub Pages. |
 
-Keep reusable puzzle rules in the shared core, mode-specific progression in the solo/battle controllers, browser behavior in the UI, and data access in the loader. Both browser battle validation and server validation use the same pure validator, but the authority must still validate every claim independently. Shared view helpers must not pause, advance rounds or award outcomes. Rendering uses DOM methods and `textContent`. URLs are relative or derived from `import.meta.url`; preserve hosting under both `/` and `/20words/`.
+Keep reusable puzzle rules in the shared core, mode-specific progression in the solo/battle controllers, browser behavior in the UI, and data access in the loader. Both browser battle validation and server validation use the same pure validator, but the authority must still validate every claim independently. Shared view helpers must not pause, advance rounds or award outcomes. Rendering uses DOM methods and `textContent`. URLs are relative or derived from `import.meta.url`; preserve hosting under both `/` and `/battle-words/`.
 
 ## Rules and implementation details that are easy to regress
 
@@ -95,6 +95,8 @@ One SQLite-backed Durable Object per room owns atomic seat claims, state, deadli
 
 Names are nonunique display text, cached in browser storage. Private random per-room credentials reserve at most two seats and support same-browser reconnect through the ordinary room link. Never identify a player by name, free a seat on disconnect, or expose credentials in the shared link. No private recovery link exists; storage loss means losing seat access. A new controlling connection replaces the old one, which must stop automatic reconnecting.
 
+The repository/Pages rename to `battle-words` preserves same-origin browser names and seats through a narrow read-and-copy fallback from the old `/20words/` storage prefix. Keep existing new-path values and legacy keys intact. Saved room links need the new `/battle-words/` path with the same fragment; GitHub does not redirect the old Pages URL. The rename checks passed all 88 Node tests, the Worker dry run, and a Chrome check of the new subpath, solo startup and storage migration.
+
 Waiting rooms expire after 30 minutes. Completed rooms have no automatic expiry: anyone with the room link may read final public results, without occupying a seat. Do not expire completed records, reuse IDs, delete the production namespace, or expose private room data in public results. Separate rematches use new room links. Browser storage must not gain saved solo games, active words or timers.
 
 See [BATTLE_SETUP.md](BATTLE_SETUP.md) for local commands, account setup, deployment and operations. The existing Pages workflow publishes static files only; the manually dispatched battle workflow separately publishes the Worker. A blank production battle URL keeps solo available and displays battle as unavailable. No Cloudflare account or live deployment is created simply by editing the repository.
@@ -134,7 +136,7 @@ node scripts/serve.mjs
 node scripts/serve.mjs --project-path
 ```
 
-The server listens at `http://127.0.0.1:4173/`, or `http://127.0.0.1:4173/20words/` with `--project-path`. Stop your previous server or use another `PORT` before starting a second one on the same port. It binds to loopback only, so this URL is not directly reachable from a separate phone. It serves `dist/` with `Cache-Control: no-store`. Opening `index.html` via `file://` is not supported because the app uses modules and fetches JSON.
+The server listens at `http://127.0.0.1:4173/`, or `http://127.0.0.1:4173/battle-words/` with `--project-path`. Stop your previous server or use another `PORT` before starting a second one on the same port. It binds to loopback only, so this URL is not directly reachable from a separate phone. It serves `dist/` with `Cache-Control: no-store`. Opening `index.html` via `file://` is not supported because the app uses modules and fetches JSON.
 
 Check the actual shell and runtime availability before giving commands. The user has used **WSL**; Windows PowerShell syntax and paths will not work in its Linux shell. Codex's bundled Windows Node/Git are not necessarily on the user's WSL PATH. A Windows credential helper also needs Windows Git available; the working workaround used Windows `git.exe credential-manager` as the helper command, rather than invoking `git-credential-manager.exe` directly. Inspect current tooling/configuration before proposing another authentication change; keep credentials out of output and documentation.
 
@@ -153,11 +155,11 @@ Use temporary test fixtures or injected clocks where appropriate; do not ship fi
 
 ## Hosting and repository
 
-The configured origin at review time is [andrewtam123/20words](https://github.com/andrewtam123/20words), on `main`. Recheck remotes/branch/status before Git operations; repository state and deployment status can change independently of these documents.
+The configured origin at review time is [andrewtam123/battle-words](https://github.com/andrewtam123/battle-words), on `main`. Recheck remotes/branch/status before Git operations; repository state and deployment status can change independently of these documents.
 
 The authoritative frontend workflow is **Check and publish GitHub Pages** in `.github/workflows/pages.yml`. It runs `npm ci`, `npm test` and the Worker dry-run check, optionally injects the public `BATTLE_API_URL`, uploads **`dist/`**, and deploys successful `main` pushes/manual runs. Pull requests run checks without deployment. In repository Settings -> Pages, the source is **GitHub Actions**. Do not add GitHub's extra `static.yml` or Jekyll template: the existing workflow already publishes the correct directory.
 
-The expected Pages address is `https://andrewtam123.github.io/20words/`; confirm live status from the current successful deployment rather than assuming it from configuration. A push to `main` can publish immediately. Commit the project sources, tests, generated data and workflow; publish only `dist/`.
+The expected Pages address is `https://andrewtam123.github.io/battle-words/`; confirm live status from the current successful deployment rather than assuming it from configuration. A push to `main` can publish immediately. Commit the project sources, tests, generated data and workflow; publish only `dist/`.
 
 ## Review limitations
 

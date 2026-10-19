@@ -21,7 +21,7 @@ In a second terminal:
 node scripts/serve.mjs --project-path
 ```
 
-Open `http://127.0.0.1:4173/20words/`. On localhost the browser automatically uses `http://127.0.0.1:8787` for battles. Use two independent browser profiles to represent two players; two tabs in the same profile share a seat and the newer connection takes control. Wrangler keeps local room data in the ignored `.wrangler/` directory. Local rooms and production rooms are separate. The preview server binds to loopback, so these addresses are not a phone-accessible deployment.
+Open `http://127.0.0.1:4173/battle-words/`. On localhost the browser automatically uses `http://127.0.0.1:8787` for battles. Use two independent browser profiles to represent two players; two tabs in the same profile share a seat and the newer connection takes control. Wrangler keeps local room data in the ignored `.wrangler/` directory. Local rooms and production rooms are separate. The preview server binds to loopback, so these addresses are not a phone-accessible deployment.
 
 `node --test` runs the unit tests without installing packages. Installing Wrangler is necessary for the actual Cloudflare runtime check and local backend.
 
@@ -34,9 +34,11 @@ Open `http://127.0.0.1:4173/20words/`. On localhost the browser automatically us
 5. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, set `BATTLE_API_URL` to that origin. Run **Check and publish GitHub Pages** to publish the frontend with that address. The workflow runs `scripts/configure-battle.mjs` before uploading `dist/`.
 6. Open the published site in two independent browsers. Create a room, share its link, join and ready both players. Check reconnecting and viewing completed results in a third browser.
 
-For another static host, set the exported URL in `dist/js/battle-config.js`, or run `scripts/configure-battle.mjs` with `BATTLE_API_URL` in the environment before publishing. The URL is public configuration. An empty URL on a non-local host leaves battle unavailable and solo usable. Keep the GitHub Pages repository path unless deliberately changing it; the Battle Words rebrand does not rename the repository.
+For another static host, set the exported URL in `dist/js/battle-config.js`, or run `scripts/configure-battle.mjs` with `BATTLE_API_URL` in the environment before publishing. The URL is public configuration. An empty URL on a non-local host leaves battle unavailable and solo usable. The GitHub repository is `andrewtam123/battle-words` and its Pages address is `https://andrewtam123.github.io/battle-words/`.
 
 ## Later deployments
+
+The repository and Pages path were renamed from `20words` to `battle-words`. GitHub redirects the old repository address, but not the old Pages address. Update saved game links to `/battle-words/`, keeping their `#room=...` fragment unchanged. The new path uses the same battle service and stored results. On the same origin, the browser copies an existing name or room credential from the old path's storage when first needed, without replacing newer values or removing the old keys. Home-screen shortcuts should be recreated from the new site address.
 
 The optional **Publish battle service** GitHub Actions workflow is manually dispatched. Configure the `battle-production` environment and its `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets before using it. Use a Cloudflare API token scoped to deploying Workers in your account. These are administrative secrets and must never appear in browser code or room links. You can instead continue deploying from your authenticated local Wrangler CLI.
 

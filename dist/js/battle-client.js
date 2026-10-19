@@ -30,7 +30,17 @@ export class BattleClient {
   }
 
   read(key) {
-    try { return this.storage?.getItem(this.prefix + key) || this.memory.get(key) || null; }
+    try {
+      const value = this.storage?.getItem(this.prefix + key);
+      if (value != null) return value || this.memory.get(key) || null;
+      if (this.memory.has(key)) return this.memory.get(key) || null;
+      // The Pages rename keeps the origin, so recover its existing names and seats.
+      if (this.prefix === 'battle-words:/battle-words/:' && (key === 'name' || /^room:[a-f0-9]{32}$/.test(key))) {
+        const legacy = this.storage?.getItem(`battle-words:/20words/:${key}`);
+        if (legacy) { this.write(key, legacy); return legacy; }
+      }
+      return null;
+    }
     catch { this.storageAvailable = false; return this.memory.get(key) || null; }
   }
 

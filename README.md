@@ -20,7 +20,7 @@ To check the repository subpath used by GitHub Pages, stop the server and run:
 node scripts/serve.mjs --project-path
 ```
 
-Then open [localhost:4173/20words/](http://localhost:4173/20words/). Run the automated tests without a network connection:
+Then open [localhost:4173/battle-words/](http://localhost:4173/battle-words/). Run the automated tests without a network connection:
 
 ```sh
 node --test
@@ -58,14 +58,14 @@ Battle requires a connection. The browser remembers your display name and a priv
 
 ## GitHub Pages
 
-The repository is [andrewtam123/20words](https://github.com/andrewtam123/20words). The included `.github/workflows/pages.yml` workflow publishes `dist/`; confirm the current deployment status in GitHub Actions. There is no need to add a separate Static HTML or Jekyll workflow.
+The repository is [andrewtam123/battle-words](https://github.com/andrewtam123/battle-words). The included `.github/workflows/pages.yml` workflow publishes `dist/`; confirm the current deployment status in GitHub Actions. There is no need to add a separate Static HTML or Jekyll workflow.
 
 1. Put this project in a GitHub repository with a `main` branch and push it.
 2. In **Settings → Pages → Build and deployment → Source**, select **GitHub Actions**.
 3. Run the included **Check and publish GitHub Pages** workflow, or push another commit to `main`.
 4. Open the Pages URL shown by the completed deployment.
 
-The workflow tests the project, validates the backend bundle, optionally inserts the public `BATTLE_API_URL` repository variable into the frontend configuration, and uploads `dist/`. Pull requests run checks without publishing. Relative asset paths, module-relative dictionary loading, and the manifest's relative scope support repository URLs such as `https://username.github.io/20words/`, as well as a domain root. Any static host can serve the frontend without compilation. The separate, manually dispatched `battle.yml` workflow deploys the Cloudflare service when its account secrets have been configured. Renaming the product to Battle Words does not rename the GitHub repository or its existing Pages path.
+The workflow tests the project, validates the backend bundle, optionally inserts the public `BATTLE_API_URL` repository variable into the frontend configuration, and uploads `dist/`. Pull requests run checks without publishing. Relative asset paths, module-relative dictionary loading, and the manifest's relative scope support repository URLs such as `https://username.github.io/battle-words/`, as well as a domain root. Any static host can serve the frontend without compilation. The separate, manually dispatched `battle.yml` workflow deploys the Cloudflare service when its account secrets have been configured. The repository and published site use `battle-words`: [play Battle Words](https://andrewtam123.github.io/battle-words/).
 
 ## Word bank and credits
 
