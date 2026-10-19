@@ -52,6 +52,8 @@ Both players see an answer for two seconds after each round. The most wins after
 
 The responsive interface supports touch, portrait and landscape layouts, and hardware keyboards. It does not require opening a phone's keyboard. The manifest and icons support an optional home-screen entry where the browser provides that feature.
 
+During play, wide windows place round information beside the letters. Narrow screens use compact scores and progress; the smallest portrait screens hide the history grid while retaining the current round, score and timer. Letter buttons stay at least 44 pixels across at the tested phone sizes, and unusual zoom or long messages can still scroll instead of being clipped.
+
 There is **no service worker or offline caching feature**, and offline launch is not guaranteed. Loaded solo gameplay makes no further server requests and remains in memory only; refreshing or closing the page discards that solo game. There are no accounts, rankings or saved solo statistics.
 
 Battle requires a connection. The browser remembers your display name and a private room credential, allowing the same browser to rejoin through the shared room link. Names are not identity. Clearing storage or changing browsers loses the reserved seat; there is no private recovery link. A second tab using the same seat takes control. Authoritative battle state and final results are stored on the service, so the match continues with nobody connected and the results remain available afterward.

@@ -55,16 +55,20 @@
           <p class="small-note">Once you both ready up, the match keeps going—even if you leave.</p>
         </div>
         <div id="battle-countdown" class="battle-panel" hidden><p class="eyebrow">Get ready</p><h1 id="battle-count">3</h1><p class="intro">Same letters. First to solve.</p></div>
-        <div id="battle-game" hidden>
-          <div id="battle-scores" class="battle-scores" aria-label="Match score"></div>
-          <div class="game-topline"><p id="battle-round" class="eyebrow"></p><span id="battle-length" class="round-length"></span></div>
-          <ol id="battle-progress" class="progress-grid" aria-label="Battle round progress"></ol>
-          <div id="battle-timer" class="timer" role="timer"><span id="battle-seconds">30</span><span class="timer-unit">s</span></div>
-          <div class="timer-track" aria-hidden="true"><div id="battle-fill"></div></div>
-          <div class="answer-zone"><div id="battle-answer" class="answer-slots" aria-label="Your answer"></div><p id="battle-feedback" class="feedback" aria-live="polite"></p><p id="battle-reveal" class="battle-reveal"></p></div>
-          <div id="battle-tiles" class="letter-tiles" aria-label="Available battle letters"></div>
-          <div class="game-controls"><button id="battle-shuffle" class="secondary-button">Shuffle · 1</button><button id="battle-clear" class="secondary-button">Clear</button></div>
-          <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>. Battle has no pause.</p>
+        <div id="battle-game" class="game-layout" hidden>
+          <div class="round-overview">
+            <div id="battle-scores" class="battle-scores" aria-label="Match score"></div>
+            <div class="game-topline"><p id="battle-round" class="eyebrow"></p><span id="battle-length" class="round-length"></span></div>
+            <ol id="battle-progress" class="progress-grid" aria-label="Battle round progress"></ol>
+            <div id="battle-timer" class="timer" role="timer"><span id="battle-seconds">30</span><span class="timer-unit">s</span></div>
+            <div class="timer-track" aria-hidden="true"><div id="battle-fill"></div></div>
+          </div>
+          <div class="round-puzzle">
+            <div class="answer-zone"><div id="battle-answer" class="answer-slots" aria-label="Your answer"></div><p id="battle-feedback" class="feedback" aria-live="polite"></p><p id="battle-reveal" class="battle-reveal"></p></div>
+            <div id="battle-tiles" class="letter-tiles" aria-label="Available battle letters"></div>
+            <div class="game-controls"><button id="battle-shuffle" class="secondary-button">Shuffle · 1</button><button id="battle-clear" class="secondary-button">Clear</button></div>
+            <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>. Battle has no pause.</p>
+          </div>
         </div>
         <div id="battle-results" class="battle-panel" hidden>
           <p class="eyebrow">Twenty rounds, settled.</p><h1 id="battle-results-title"></h1><div id="battle-final-scores" class="battle-scores"></div>
@@ -75,18 +79,22 @@
         <button id="battle-retry" class="text-button" hidden>Try again</button>
       </section>
 
-      <section class="play-area" id="play-area" hidden aria-label="Word game">
-        <div class="game-topline"><p class="eyebrow" id="round-label">Word 01 / 20</p><button class="quiet-button" id="pause"><span aria-hidden="true">Ⅱ</span> Pause</button></div>
-        <ol class="progress-grid" id="progress" aria-label="Round progress"></ol>
-        <div class="clock-row"><span class="round-length" id="round-length">4 letters</span><div class="timer" id="timer" role="timer" aria-label="30 seconds remaining"><span id="seconds">30</span><span class="timer-unit">s</span></div><span class="score-small" id="score-small">0 solved</span></div>
-        <div class="timer-track" aria-hidden="true"><div id="timer-fill"></div></div>
-        <div class="answer-zone"><div class="answer-slots" id="answer" aria-label="Your answer"></div><p class="feedback" id="feedback" aria-live="polite"></p></div>
-        <div class="letter-tiles" id="tiles" aria-label="Available letters"></div>
-        <div class="game-controls">
-          <button class="secondary-button" id="shuffle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c2 0 3-2 5-5m2-3c2-3 3-4 5-4h3m-4-4 4 4-4 4"/></svg><span id="shuffle-label">Shuffle · 1</span></button>
-          <button class="secondary-button" id="clear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4-7 8 7 8h12V4Zm3 5 6 6m0-6-6 6"/></svg>Clear</button>
+      <section class="play-area game-layout" id="play-area" hidden aria-label="Word game">
+        <div class="round-overview">
+          <div class="game-topline"><p class="eyebrow" id="round-label">Word 01 / 20</p><button class="quiet-button" id="pause"><span aria-hidden="true">Ⅱ</span> Pause</button></div>
+          <ol class="progress-grid" id="progress" aria-label="Round progress"></ol>
+          <div class="clock-row"><span class="round-length" id="round-length">4 letters</span><div class="timer" id="timer" role="timer" aria-label="30 seconds remaining"><span id="seconds">30</span><span class="timer-unit">s</span></div><span class="score-small" id="score-small">0 solved</span></div>
+          <div class="timer-track" aria-hidden="true"><div id="timer-fill"></div></div>
         </div>
-        <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>.</p>
+        <div class="round-puzzle">
+          <div class="answer-zone"><div class="answer-slots" id="answer" aria-label="Your answer"></div><p class="feedback" id="feedback" aria-live="polite"></p></div>
+          <div class="letter-tiles" id="tiles" aria-label="Available letters"></div>
+          <div class="game-controls">
+            <button class="secondary-button" id="shuffle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c2 0 3-2 5-5m2-3c2-3 3-4 5-4h3m-4-4 4 4-4 4"/></svg><span id="shuffle-label">Shuffle · 1</span></button>
+            <button class="secondary-button" id="clear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4-7 8 7 8h12V4Zm3 5 6 6m0-6-6 6"/></svg>Clear</button>
+          </div>
+          <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>.</p>
+        </div>
       </section>
 
       <section class="pause-area" id="pause-area" hidden aria-labelledby="pause-title">
