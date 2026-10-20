@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BattleClient } from '../dist/js/battle-client.js';
-import { roundFeedback } from '../dist/js/battle-feedback.js';
+import { roundFeedback, roundReviewStatus } from '../dist/js/battle-feedback.js';
 import { PROTOCOL_VERSION, DICTIONARY_VERSION } from '../dist/js/battle-protocol.js';
 
 const storage = () => { const map = new Map(); return { getItem: key => map.get(key), setItem: (key,value) => map.set(key,value) }; };
@@ -12,7 +12,21 @@ test('pending words have no outcome; final feedback distinguishes wins, ties and
   assert.equal(roundFeedback({outcome:'win',winner:0},0,'care').appearance, 'correct');
   assert.equal(roundFeedback({outcome:'tie',winner:null},0,'care').appearance, 'tie');
   assert.deepEqual(roundFeedback({outcome:'win',winner:1},0,'care'), {appearance:'lost',text:'Almost!'});
-  assert.equal(roundFeedback({outcome:'timeout',winner:null},0,'').appearance, 'timeout');
+  assert.deepEqual(roundFeedback({outcome:'timeout',winner:null},0,''), {appearance:'unclaimed',text:'Neither player found it.'});
+  assert.equal(roundFeedback({outcome:'timeout',winner:null},0,'care').appearance, 'unclaimed');
+  assert.equal(roundFeedback({outcome:'win',winner:1},0,'').appearance, 'lost');
+});
+
+test('review uses the winner receipt time or the lower tied time and omits time for misses', () => {
+  const players = [{name:'Alex'}, {name:'Taylor'}];
+  assert.deepEqual(roundReviewStatus({outcome:'win',winner:1,elapsedMs:[null,4321]},players),
+    {appearance:'solved',text:'✓ Taylor (4.3s)'});
+  for (const elapsedMs of [[4321,4519], [4519,4321]]) {
+    assert.deepEqual(roundReviewStatus({outcome:'tie',winner:null,elapsedMs},players),
+      {appearance:'tied',text:'= Tied (4.3s)'});
+  }
+  assert.deepEqual(roundReviewStatus({outcome:'timeout',winner:null,elapsedMs:[null,null]},players),
+    {appearance:'unclaimed',text:'× Missed'});
 });
 
 test('credentials are saved before a join request and names are independent of identity', async () => {

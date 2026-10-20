@@ -66,7 +66,7 @@
           <div class="round-puzzle">
             <div class="answer-zone"><div id="battle-answer" class="answer-slots" aria-label="Your answer"></div><p id="battle-feedback" class="feedback" aria-live="polite"></p><p id="battle-reveal" class="battle-reveal"></p></div>
             <div id="battle-tiles" class="letter-tiles" aria-label="Available battle letters"></div>
-            <div class="game-controls"><button id="battle-shuffle" class="secondary-button">Shuffle · 1</button><button id="battle-clear" class="secondary-button">Clear</button></div>
+            <div class="game-controls"><button id="battle-shuffle" class="secondary-button" aria-keyshortcuts="Space" title="Shuffle (Space)">Shuffle · 1</button><button id="battle-clear" class="secondary-button" aria-keyshortcuts="Control+Backspace" title="Clear (Ctrl+Backspace)">Clear</button></div>
             <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>. Battle has no pause.</p>
           </div>
         </div>
@@ -90,8 +90,8 @@
           <div class="answer-zone"><div class="answer-slots" id="answer" aria-label="Your answer"></div><p class="feedback" id="feedback" aria-live="polite"></p></div>
           <div class="letter-tiles" id="tiles" aria-label="Available letters"></div>
           <div class="game-controls">
-            <button class="secondary-button" id="shuffle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c2 0 3-2 5-5m2-3c2-3 3-4 5-4h3m-4-4 4 4-4 4"/></svg><span id="shuffle-label">Shuffle · 1</span></button>
-            <button class="secondary-button" id="clear"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4-7 8 7 8h12V4Zm3 5 6 6m0-6-6 6"/></svg>Clear</button>
+            <button class="secondary-button" id="shuffle" aria-keyshortcuts="Space" title="Shuffle (Space)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 7 12 12 12h3m-4-4 4 4-4 4M3 18h3c2 0 3-2 5-5m2-3c2-3 3-4 5-4h3m-4-4 4 4-4 4"/></svg><span id="shuffle-label">Shuffle · 1</span></button>
+            <button class="secondary-button" id="clear" aria-keyshortcuts="Control+Backspace" title="Clear (Ctrl+Backspace)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4-7 8 7 8h12V4Zm3 5 6 6m0-6-6 6"/></svg>Clear</button>
           </div>
           <p class="input-note">Tap the letters<span class="desktop-hint"> or use your keyboard</span>.</p>
         </div>
@@ -121,9 +121,9 @@
   <dialog id="help-dialog" aria-labelledby="help-title">
     <div class="dialog-top"><p class="eyebrow">The rules</p><button class="icon-button" data-close aria-label="Close instructions">×</button></div>
     <h2 id="help-title">A word at a time.</h2>
-    <ol class="rules"><li>Use <strong>every letter</strong> to make a word. Tap the tiles or type. Valid alternative anagrams count.</li><li>You get <strong>30 seconds per word</strong>. Unused seconds don’t carry over.</li><li>Use the <strong>Shuffle button once</strong> per word. Tap a selected letter to erase from its last occurrence onward. Backspace removes the last letter; Clear removes all.</li><li>Miss a word? We’ll reveal the answer and move on. Your score is how many you solve <strong>out of 20</strong>.</li></ol>
+    <ol class="rules"><li>Use <strong>every letter</strong> to make a word. Tap the tiles or type. Valid alternative anagrams count.</li><li>You get <strong>30 seconds per word</strong>. Unused seconds don’t carry over.</li><li>Use <strong>Shuffle</strong> once per word. Tap a selected letter to erase from its last occurrence onward. Backspace removes the last letter; <strong>Clear</strong> removes all. Use <strong>Space</strong> as a shortcut for <strong>Shuffle</strong> and <strong>Ctrl+Backspace</strong> for <strong>Clear</strong>.</li><li>Miss a word? We’ll reveal the answer and move on. Your score is how many you solve <strong>out of 20</strong>.</li></ol>
     <div class="progression-note"><span>THE SAME CLIMB, EVERY TIME</span><p>2 × 4 letters <b>→</b> 5 × 5 <b>→</b> 6 × 6 <b>→</b> 3 × 7 <b>→</b> 2 × 8 <b>→</b> 1 × 9 <b>→</b> 1 × 10</p></div>
-    <p class="dialog-note">Solo pauses when you switch apps and starts fresh on reload. Battle never pauses. Both players get the same words; the first correct answer received by the server wins. Answers received less than 0.2 seconds apart tie, with no point awarded. Both must arrive before time runs out. Each round ends with a two-second reveal. The most round wins takes the match.</p>
+    <p class="dialog-note">Solo pauses when you switch apps and starts fresh on reload. Battle never pauses. Both players get the same words; the first correct answer received by the server earns 1 point. Answers received less than 0.2 seconds apart tie, earning 0.5 points each. Both must arrive before time runs out. If neither player solves, neither scores. Each round ends with a two-second reveal. The highest score takes the match.</p>
     <button class="primary-button full-width" data-close>Got it</button>
   </dialog>
 

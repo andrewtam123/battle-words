@@ -46,11 +46,13 @@ The Pages workflow tests and validates the backend bundle but only deploys stati
 
 ## Implemented rules
 
-- The existing 20-word progression and SCOWL target/accepted banks are shared by both modes. Battle samples all targets once with replacement, then prepares initial and button-shuffle arrangements before play. Future words and random seed stay private on the server.
+- The existing 20-word progression and SCOWL target/accepted banks are shared by both modes. Battle samples all targets once with replacement, then prepares initial and shuffle arrangements before play. Future words and random seed stay private on the server.
 - Exactly two reserved player seats. Both ready once, then a three-second countdown. Display names need not be unique and are remembered by the browser.
-- Each round has an absolute 30-second deadline. The first valid answer received by the authority opens a 200 ms resolution window. Another player's valid receipt strictly less than 200 ms later ties, provided both arrive strictly before the round deadline. A tie awards neither player a win; a sole winner earns one point.
-- Invalid answers are rejected locally for immediate retry; the authority independently validates submitted claims. A completed valid entry stays filled with no provisional winner. Final feedback is green for a win, grey for a tie, or red with “Almost!” for a correct answer that lost.
+- Each round has an absolute 30-second deadline. The first valid answer received by the authority opens a 200 ms resolution window. Another player's valid receipt strictly less than 200 ms later ties, provided both arrive strictly before the round deadline. A tie awards each player 0.5 points; a sole winner earns one point; neither solving awards zero.
+- Invalid answers are rejected locally for immediate retry; the authority independently validates submitted claims. A completed valid entry stays filled with no provisional winner. Final feedback is green for a win, grey for a tie or shared miss, or red with “Almost!” for a correct answer that lost. Shared misses have grey progress cells with a small centered dash (`–`); ties use an equals sign and personal losses a red cross.
+- Both modes support unmodified Space to shuffle once per round and Ctrl+Backspace to clear, alongside the Shuffle and Clear buttons. There is no Shift shuffle shortcut. Gameplay keys are ignored in editable fields, open dialogs and inactive gameplay. Space on a focused letter tile shuffles; other focused buttons and links retain their normal Space behavior.
 - Every round has a two-second answer reveal. The highest score after 20 rounds wins; equal scores draw. Battle has no pause or disconnect forfeits. Solo retains its original pause and feedback timings.
+- Results show each original target and its distinct submitted alternatives on the left, with `✓ Player (4.2s)`, `= Tied (4.2s)`, or `× Missed` on the right. For a shared miss, the word and `× Missed` use the same red as solo missed results. Times measure elapsed time until authority receipt, rounded to one decimal place. Ties use the lower of the two times; shared misses have no time.
 - A waiting room expires after 30 minutes. Once started, the match advances through completion even with nobody connected. Completed results have no automatic expiry and are publicly viewable by anyone with the room link. A rematch uses a new link.
 
 ## Persistence and reconnects
@@ -59,7 +61,7 @@ Each room stores its prepared puzzles, players, authoritative receipts, deadline
 
 The browser stores only the display name and a per-room seat credential under the application's hosted path. It does not save the battle's words, timer or score locally. Closing and reopening the room in the same browser reconnects to the current server state. Clearing browser storage or using another browser loses seat access; names are not authentication and there is no private recovery link. A second controlling tab replaces the first. Retries reuse a submission ID so that an acknowledged answer's original receipt time cannot change.
 
-Final result records contain public names, scores and round answers. They exclude seat credentials, credential hashes and socket tickets. Public result responses can be cached; live or authenticated responses cannot. There is no public match directory, account, ranking, or solo history.
+Final result records contain public names, scores and round answers. They exclude seat credentials, credential hashes and socket tickets. Public result responses can be cached; live or authenticated responses cannot. Scores are derived from recorded round outcomes, so existing matches and historical results also award 0.5 points to each player for ties. The browser applies the same calculation to cached public results with older score totals. There is no public match directory, account, ranking, or solo history.
 
 ## Operation and scaling
 

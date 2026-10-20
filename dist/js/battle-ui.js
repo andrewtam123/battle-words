@@ -1,7 +1,8 @@
 import { BattleClient } from './battle-client.js';
 import { BATTLE_API_URL } from './battle-config.js';
 import { WORD_LENGTHS, entryWord, selectTileIds, tileForLetter, isValidAnswer } from './game-core.js';
-import { roundFeedback } from './battle-feedback.js';
+import { roundFeedback, roundReviewStatus } from './battle-feedback.js';
+import { battleScores } from './battle-scoring.js';
 import {
   element, renderAnswer, renderTiles, renderTimer, readGameKey,
   INVALID_FEEDBACK_MS, INVALID_FEEDBACK_TEXT,
@@ -200,7 +201,7 @@ export function createBattleUI({ onEnter, onExit }) {
     roomId = next.id;
     if (next.ownSubmission) pending = next.ownSubmission.answer;
     if (next.phase === 'finished') {
-      publicResult = { ...next, winner: next.scores[0] === next.scores[1] ? null : next.scores[0] > next.scores[1] ? 0 : 1 };
+      publicResult = next;
     }
     $('message').textContent = '';
     $('retry').hidden = true;
@@ -230,6 +231,22 @@ export function createBattleUI({ onEnter, onExit }) {
       pending = word;
       client.submit(state.index, word);
     }
+    render();
+  }
+
+  function clearAnswer() {
+    if (!canInput()) return;
+    selected = [];
+    invalid = '';
+    render();
+  }
+
+  function shuffleAnswer() {
+    if (!canInput() || state.shuffleUsed) return;
+    selected = [];
+    invalid = '';
+    shuffleWaiting = true;
+    client.shuffle(state.index);
     render();
   }
 
@@ -298,14 +315,17 @@ export function createBattleUI({ onEnter, onExit }) {
     const outcome = roundFeedback(result, state.seat, pending);
     const appearance = result ? outcome.appearance : invalid ? 'invalid' : '';
     const answer = pending || (result ? result.answers.find(Boolean) || result.target : invalid || entryWord(state.tiles, selected));
-    renderPlayers($('scores'), state.players, state.scores, state.seat);
+    renderPlayers($('scores'), state.players, battleScores(state.results), state.seat);
     $('round').textContent = `Word ${String(state.index + 1).padStart(2, '0')} / ${WORD_LENGTHS.length}`;
     $('length').textContent = `${length} letters`;
     $('progress').replaceChildren(...WORD_LENGTHS.map((_, index) => {
       const round = state.results[index];
-      const kind = !round ? index === state.index ? 'current' : '' : round.outcome === 'tie' ? 'tied' : round.winner === state.seat ? 'solved' : 'missed';
-      const cell = element('li', `progress-cell ${kind}`, round ? round.outcome === 'tie' ? '=' : round.winner === state.seat ? '✓' : '×' : String(index + 1).padStart(2, '0'));
-      cell.setAttribute('aria-label', `Round ${index + 1}: ${round ? round.outcome === 'tie' ? 'tie' : round.winner === state.seat ? 'won' : round.outcome === 'timeout' ? 'timeout' : 'lost' : index === state.index ? 'current' : 'upcoming'}`);
+      const kind = !round ? index === state.index ? 'current' : ''
+        : round.outcome === 'timeout' ? 'unclaimed' : round.outcome === 'tie' ? 'tied' : round.winner === state.seat ? 'solved' : 'missed';
+      const mark = { unclaimed: '–', tied: '=', solved: '✓', missed: '×' };
+      const label = { unclaimed: 'neither player solved', tied: 'tie', solved: 'won', missed: 'lost' };
+      const cell = element('li', `progress-cell ${kind}`, round ? mark[kind] : String(index + 1).padStart(2, '0'));
+      cell.setAttribute('aria-label', `Round ${index + 1}: ${round ? label[kind] : index === state.index ? 'current' : 'upcoming'}`);
       if (!round && index === state.index) cell.setAttribute('aria-current', 'step');
       return cell;
     }));
@@ -320,17 +340,23 @@ export function createBattleUI({ onEnter, onExit }) {
   }
 
   function renderResults(result) {
-    const key = JSON.stringify(result.results);
+    const key = JSON.stringify([result.results, result.players, state?.seat]);
     if (key === lastResultsKey) return;
     lastResultsKey = key;
-    $('results-title').textContent = result.winner === null ? 'An even match.' : `${result.players[result.winner].name} wins!`;
-    renderPlayers($('final-scores'), result.players, result.scores, state?.seat);
+    // Old completed responses may be cached with zero-point ties. The recorded
+    // outcomes remain authoritative, so apply current scoring to those as well.
+    const scores = battleScores(result.results);
+    const winner = scores[0] === scores[1] ? null : scores[0] > scores[1] ? 0 : 1;
+    $('results-title').textContent = winner === null ? 'An even match.' : `${result.players[winner].name} wins!`;
+    renderPlayers($('final-scores'), result.players, scores, state?.seat);
     $('review').replaceChildren(...result.results.map(round => {
-      const row = element('li', 'battle-review-row');
-      const words = [...new Set([round.target, ...round.answers.filter(Boolean)])].join(' / ').toUpperCase();
+      const status = roundReviewStatus(round, result.players);
+      const row = element('li', `battle-review-row ${status.appearance}`);
+      const word = element('span', 'review-answer', round.target);
+      const alternatives = [...new Set(round.answers.filter(answer => answer && answer !== round.target))];
+      if (alternatives.length) word.append(element('span', 'review-target', `Also: ${alternatives.join(', ').toUpperCase()}`));
       row.append(element('span', 'review-number', String(round.round + 1).padStart(2, '0')),
-        element('span', 'battle-review-word', words),
-        element('span', 'battle-review-outcome', round.outcome === 'tie' ? 'Tie' : round.winner === null ? 'Time’s up' : `${result.players[round.winner].name} won`));
+        word, element('span', 'battle-review-outcome', status.text));
       return row;
     }));
   }
@@ -379,20 +405,15 @@ export function createBattleUI({ onEnter, onExit }) {
     const tile = event.target.closest('button[data-tile]');
     if (tile) select(Number(tile.dataset.tile));
   });
-  $('clear').addEventListener('click', () => { if (canInput()) { selected = []; invalid = ''; render(); } });
-  $('shuffle').addEventListener('click', () => {
-    if (!canInput() || state.shuffleUsed) return;
-    selected = [];
-    invalid = '';
-    shuffleWaiting = true;
-    client.shuffle(state.index);
-    render();
-  });
+  $('clear').addEventListener('click', clearAnswer);
+  $('shuffle').addEventListener('click', shuffleAnswer);
   document.addEventListener('keydown', event => {
     if (!canInput()) return;
     const action = readGameKey(event, $('tiles'));
     if (!action) return;
     if (action.method === 'backspace') { selected.pop(); invalid = ''; render(); }
+    else if (action.method === 'clear') clearAnswer();
+    else if (action.method === 'shuffle') shuffleAnswer();
     else {
       const tile = tileForLetter(state.tiles, selected, action.value);
       if (tile) select(tile.id);

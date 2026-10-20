@@ -805,7 +805,8 @@ h1 {
   color: var(--success);
 }
 
-.review-row.missed .review-answer,.review-row.missed .review-status {
+.review-row.missed .review-answer,.review-row.missed .review-status,
+.battle-review-row.unclaimed .review-answer,.battle-review-row.unclaimed .battle-review-outcome {
   color: var(--red);
 }
 
@@ -1236,15 +1237,16 @@ dialog .dialog-note {
 #battle-seconds { font-size:39px; font-weight:650; font-variant-numeric:tabular-nums; }
 .battle-reveal { min-height:20px; margin-top:8px; font-size:13px; text-align:center; color:var(--ink); overflow-wrap:anywhere; }
 .battle-area .answer-zone { min-height:108px; }
-.answer-slots.tie .answer-slot { color:#68716b; border-color:#68716b; }
+.answer-slots.tie .answer-slot,.answer-slots.unclaimed .answer-slot { color:#68716b; border-color:#68716b; }
 .answer-slots.lost .answer-slot { color:var(--red); border-color:var(--red); }
 .feedback.lost { color:var(--red); }
-.feedback.tie { color:#68716b; }
-.progress-cell.tied { color:#4d5751; background:#dce0dc; }
+.feedback.tie,.feedback.unclaimed { color:#68716b; }
+.progress-cell.tied,.progress-cell.unclaimed { color:#4d5751; background:#dce0dc; }
 .battle-review { padding:0; list-style:none; margin:25px 0 0; text-align:left; }
-.battle-review-row { display:grid; grid-template-columns:24px minmax(0,1fr); gap:6px 10px; padding:12px 0; border-top:1px solid var(--line); align-items:baseline; }
-.battle-review-word { font-size:14px; font-weight:650; overflow-wrap:anywhere; }
-.battle-review-outcome { grid-column:2; font-size:12px; color:var(--muted); overflow-wrap:anywhere; }
+.battle-review-row { display:grid; grid-template-columns:24px minmax(0,1fr) minmax(0,1fr); gap:6px 10px; padding:12px 0; border-top:1px solid var(--line); align-items:center; font-size:13px; }
+.battle-review-row .review-answer { min-width:0; overflow-wrap:anywhere; }
+.battle-review-outcome { font-size:11px; color:var(--success); text-align:right; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.battle-review-row.tied .battle-review-outcome { color:#68716b; }
 .battle-panel .game-controls { flex-wrap:wrap; }
 @media(max-width:600px) { .brand { font-size:21px; gap:9px; } .header-right { gap:12px; } .edition { display:none; } .battle-area .game-topline { margin-bottom:8px; } }
 @media(max-width:360px) { .battle-share { flex-wrap:wrap; } .battle-share input { flex-basis:100%; } .battle-area .answer-slots { gap:3px; } .battle-area .answer-slot { font-size:21px; } }

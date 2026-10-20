@@ -148,7 +148,8 @@ test('slow storage preserves receipt timestamps and tie eligibility of queued su
   release();
   await Promise.all([first, second, alarm]);
   assert.equal(room.record.match.results[0].outcome, 'tie');
-  assert.deepEqual(room.record.match.scores, [0, 0]);
+  assert.deepEqual(room.record.match.scores, [0.5, 0.5]);
+  assert.deepEqual(storage.data.get('room').match.scores, [0.5, 0.5]);
   assert.deepEqual(room.record.match.rounds[0].claims.map(claim => claim.receivedAt), [5000, 5199]);
 });
 
@@ -243,6 +244,63 @@ test('accepted submission IDs remain idempotent after a restart and never award 
   assert.equal(ack.accepted, true);
   assert.equal(ack.receivedAt, 4500);
   assert.deepEqual(restored.record.match.scores, [1, 0]);
+});
+
+test('restored active legacy rooms persist tie points and retries never award them twice', async t => {
+  const { room, sockets, storage, clock } = await playing(t);
+  const claims = [
+    { type: 'submit', round: 0, submissionId: 'tied-zero', answer: 'race' },
+    { type: 'submit', round: 0, submissionId: 'tied-one', answer: 'care' },
+  ];
+  clock.now = 4500;
+  await send(room, sockets[0], claims[0]);
+  clock.now = 4600;
+  await send(room, sockets[1], claims[1]);
+  clock.now = 6700;
+  await room.alarm();
+  const legacy = storage.data.get('room');
+  legacy.match.scores = [0, 0];
+  const before = structuredClone(legacy.match);
+  const writes = storage.writes;
+  const restored = new RoomService({ storage, getWebSockets: () => sockets }, env, { pools, acceptedWords });
+  await restored.fetch(request());
+  assert.deepEqual(storage.data.get('room').match, { ...before, scores: [0.5, 0.5] });
+  assert.equal(storage.writes, writes + 1);
+  for (const seat of [0, 1]) {
+    await send(restored, sockets[seat], claims[seat]);
+    const ack = sockets[seat].messages.filter(message => message.type === 'ack').at(-1);
+    assert.equal(ack.accepted, true);
+    assert.equal(ack.receivedAt, seat === 0 ? 4500 : 4600);
+  }
+  assert.deepEqual(restored.record.match.scores, [0.5, 0.5]);
+  assert.equal(restored.record.match.results.length, 1);
+  assert.equal(storage.writes, writes + 1);
+});
+
+test('reading finished legacy rooms updates stored totals without removing public history', async t => {
+  const { room, sockets, storage, clock } = await playing(t);
+  clock.now = 4500;
+  await send(room, sockets[0], { type: 'submit', round: 0, submissionId: 'old-tie-zero', answer: 'race' });
+  clock.now = 4600;
+  await send(room, sockets[1], { type: 'submit', round: 0, submissionId: 'old-tie-one', answer: 'care' });
+  clock.now = 1_000_000;
+  await room.alarm();
+  const legacy = storage.data.get('room');
+  legacy.match.scores = [0, 0];
+  const before = structuredClone(legacy.match);
+  const writes = storage.writes;
+  const restored = new RoomService({ storage, getWebSockets: () => [] }, env, { pools, acceptedWords });
+  const result = (await (await restored.fetch(request())).json()).results;
+  assert.deepEqual(result.scores, [0.5, 0.5]);
+  assert.equal(result.winner, null);
+  assert.deepEqual(result.results, before.results);
+  assert.equal(result.results.length, 20);
+  assert.equal(result.finishedAt, before.finishedAt);
+  assert.deepEqual(storage.data.get('room').match, { ...before, scores: [0.5, 0.5] });
+  assert.equal(storage.writes, writes + 1);
+  assert.equal(storage.alarm, null);
+  assert.deepEqual((await (await restored.fetch(request())).json()).results, result);
+  assert.equal(storage.writes, writes + 1, 'later reads do not rewrite normalized history');
 });
 
 test('battle seeds are safe integers independent of the visible creation timestamp', () => {

@@ -12,16 +12,20 @@ The **2026-10-18** battle implementation adds pure match rules, a Cloudflare ser
 
 The subsequent shared-core/view refactor has **85 passing Node tests**, including cross-mode validation and an independently pinned pre-refactor random-stream digest. Four full-game fixtures retained identical targets and every solo/battle tile arrangement. Local Chrome checks completed 20 rounds in each mode at 320 px, covering repeated-letter removal, focus, keyboard guards, invalid retries, shuffle, solo pause, battle reconnect/results and delayed “Almost!” feedback. The Worker bundle dry run passed. Shared helpers preserve solo's on-demand scrambling and battle's precomputed arrangements; their distinct controllers still own timing, pause and scoring.
 
+The **2026-10-20** battle scoring/results update has **95 passing Node tests** and a successful Worker bundle dry run. Browser fixtures checked recalculation of historical totals, the lower tied solve time, alternative-answer layout, all five feedback cases, 24-character names and 9/10-letter results at 320 px, plus 10-letter feedback at 568 × 320. Solo startup, pause/resume and Help passed smoke checks at the repository subpath. These were fixture-based browser checks, not a new live two-client match or deployed-service validation.
+
+The subsequent keyboard-shortcut update has **101 passing Node tests**, including shared key filtering, focus, modifier and repeat guards. Browser checks covered Space shuffle and Ctrl+Backspace clear in live solo and a battle transport fixture, single-use shuffle, pause/dialog guards, pending battle answers, native button activation and player-name editing. Battle service behavior was not changed or revalidated through a live two-client match.
+
 ## Product decisions to preserve
 
 - Exactly **20 rounds**, with lengths defined by `WORD_LENGTHS` in `dist/js/game-core.js` (also reexported by `engine.js`):
   `4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10`.
   Rounds 19 and 20 are **9 and 10 letters**. The earlier 18- and 19-word versions are superseded. This is the current shipped game and the required progression for future default builds; planned custom builds may use different counts and ordered lengths.
-- Each word gets **30 seconds**. Unused time does not carry forward. Solo score is the number solved out of 20; battle score is the number of rounds won. Elapsed times are shown only in results review.
+- Each word gets **30 seconds**. Unused time does not carry forward. Solo score is the number solved out of 20; battle awards **1 point for a win, 0.5 to each player for a tie, and 0 when neither solves**. Elapsed times are shown only in results review.
 - Unlimited new games, no daily challenge or account requirement. The current solo app has no backend, database, external runtime library, analytics, or remote dictionary API. Battle mode is an explicitly requested exception: it uses an authoritative Cloudflare Worker and SQLite-backed Durable Objects. Solo must remain independent of that service.
 - Solo game state lives only in memory. Reloading or closing the page loses the solo game. **Solo game recovery and saved scores/statistics remain excluded.** Battle specifically persists server match state/results and browser names/seat credentials, as requested; see the battle section below. The user has now requested persistent local **build definitions**, which is a specific exception to the earlier no-persistence scope, not permission to save active words, seeds, timer, answers or progress. No build storage exists yet.
 - There is currently **no service worker or deliberate offline cache**. A loaded solo game can keep running without additional gameplay requests, but offline reload/launch is not promised. The manifest alone does not provide offline support.
-- Preserve touch/mobile play and hardware keyboard support. Shuffle is available only by activating its button, once per round. There is **no global Space or Shift shuffle shortcut**; ordinary keyboard activation of a focused button remains valid accessibility behavior.
+- Preserve touch/mobile play and hardware keyboard support. In both modes, unmodified **Space** shuffles once per round and **Ctrl+Backspace** clears the entry; Shuffle and Clear buttons remain available. There is no Shift shuffle shortcut. Ignore gameplay keys in editable fields, open dialogs and inactive gameplay. Focused non-tile buttons and links retain normal Space activation; Space on a focused letter tile shuffles.
 
 ## Architecture and edit locations
 
@@ -34,6 +38,7 @@ The subsequent shared-core/view refactor has **85 passing Node tests**, includin
 | `dist/js/game-view.js` | Shared browser element creation, answer/tile/timer rendering and keyboard filtering. Mode controllers own lifecycle and outcomes. |
 | `dist/js/app.js` | Solo DOM rendering, input, lifecycle and integration with separate battle UI. |
 | `dist/js/battle-rules.js` | Pure battle transitions, precomputed puzzles, deadline arbitration and safe projections. |
+| `dist/js/battle-scoring.js` | Shared outcome-based score calculation for authority state, browser views and historical results. |
 | `dist/js/battle-client.js`, `battle-ui.js` | Browser transport, local entry validation, credentials, reconnect and battle screens. |
 | `dist/js/battle-feedback.js`, `battle-protocol.js` | Battle outcome feedback and shared protocol/dictionary versions. |
 | `server/`, `wrangler.jsonc` | Cloudflare routing, room auth, WebSockets, persisted state and durable alarms. |
@@ -61,7 +66,7 @@ Do not add a queue, anagram-group sampling, frequency weighting, duplicate preve
 
 Tiles have stable IDs, including duplicate letters. A full selection submits automatically. Any accepted word using exactly the available letters succeeds; the selected target is also always accepted by the engine. Invalid full guesses clear the selection and permit immediate retry while the timer keeps running; the UI briefly displays the rejected entry.
 
-Clicking a **selected** tile removes the suffix starting at the **last occurrence of that character in the current entry**, inclusive. Example: with `NNO` entered, clicking either selected N leaves `N`. This is deliberately different from removing one tile and shifting the rest. Backspace removes only the last selected tile; Clear removes everything.
+Clicking a **selected** tile removes the suffix starting at the **last occurrence of that character in the current entry**, inclusive. Example: with `NNO` entered, clicking either selected N leaves `N`. This is deliberately different from removing one tile and shifting the rest. Backspace removes only the last selected tile; Ctrl+Backspace or Clear removes everything.
 
 Shuffle clears the entry and preserves the target, tile identities and remaining time. Scrambling avoids the target spelling and, on shuffle, the previous visible order when another permutation exists. Its bounded fallback must still terminate for repeated/identical-letter inputs.
 
@@ -87,9 +92,11 @@ Implementation will need an explicit, immutable per-round plan in place of globa
 
 Battle currently uses exactly the existing 20 rounds and dictionary. Custom builds remain future work. Its pure rules live separately from GameEngine; keep solo behavior unchanged. All targets are sampled before all initial/shuffle arrangements are prepared, once on the authority. Do not expose future targets, seed, credentials or provisional opponent claims in browser snapshots.
 
-Both reserved players ready once, followed by a three-second countdown. Shared rounds have strict 30-second deadlines. The first valid authority receipt opens a 200 ms window; the other player's valid receipt must be strictly less than 200 ms later and strictly before the round deadline to tie. Exact deadline or exact 200 ms separation loses. Ties award neither player a point. Do not show a provisional winner to either client. All rounds reveal a full answer for two seconds. Most wins after 20 rounds wins; equal scores draw.
+Both reserved players ready once, followed by a three-second countdown. Shared rounds have strict 30-second deadlines. The first valid authority receipt opens a 200 ms window; the other player's valid receipt must be strictly less than 200 ms later and strictly before the round deadline to tie. Exact deadline or exact 200 ms separation loses. A win awards one point; a tie awards 0.5 to each player; neither solving awards zero. Do not show a provisional winner to either client. All rounds reveal a full answer for two seconds. The highest score after 20 rounds wins; equal scores draw. Derive scores from round outcomes so existing matches and historical results, including cached result responses, also use half-points for ties.
 
-Invalid answers are checked locally for immediate retry and server claims are independently validated. A valid full entry remains filled in its normal color pending resolution, without a Submitted message. Confirmed win is green, tie grey, and a correct answer that lost is red with Almost!. Preserve stable tile IDs, repeated-letter suffix removal and once-per-round button-only shuffle.
+Invalid answers are checked locally for immediate retry and server claims are independently validated. A valid full entry remains filled in its normal color pending resolution, without a Submitted message. Confirmed win is green, tie grey, and a correct answer that lost is red with Almost!. When neither player solves, feedback is neutral grey and the completed progress cell is grey with a small centered dash (`–`); ties retain the equals sign and personal losses retain the red cross. Preserve stable tile IDs, repeated-letter suffix removal and once-per-round shuffle through its button or unmodified Space.
+
+Battle results show the original target on the left, with distinct submitted alternative answers beneath it. The right side shows `✓ Player (4.2s)`, `= Tied (4.2s)`, or `× Missed` with no time. For a shared miss, the word and `× Missed` use the same red as solo missed results. Times use authority receipt elapsed times, rounded to one decimal place; a tie shows the lower of the two times. Keep completed result links available unless their removal is separately requested.
 
 One SQLite-backed Durable Object per room owns atomic seat claims, state, deadlines and outcomes. Persist before broadcasting. Durable alarms and absolute deadlines advance matches even when both clients disconnect; they never pause or forfeit. Submission IDs make retries idempotent and retain original receipt times. Do not convert the fixed receipt window into client-time latency compensation.
 
@@ -147,7 +154,7 @@ Automated coverage is 24 engine tests, 7 data tests and 6 loader tests at the re
 For UI/lifecycle changes, complement the relevant Node tests with browser smoke checks:
 
 1. Load at the repository subpath; verify startup and dictionary-error/retry behavior when relevant.
-2. Exercise touch/click and typing, repeated letters, selected-letter suffix removal, Backspace, invalid answers and single-use shuffle. Check normal keyboard focus and the absence of global shuffle shortcuts.
+2. Exercise touch/click and typing, repeated letters, selected-letter suffix removal, Backspace, Ctrl+Backspace, invalid answers and single-use shuffle through both its button and unmodified Space. Check keyboard focus, Space on focused tiles versus other buttons/links, editable-field/dialog/inactive-play guards, and the absence of a Shift shuffle shortcut.
 3. Pause/resume, open/close dialogs, switch tabs/apps, and restart during feedback; confirm no hidden timer loss or stale round transition.
 4. Verify 9- and 10-letter rounds at narrow mobile widths (including 320 px), results out of 20, word review and another fresh game. Check landscape/short-height layouts when styling changes.
 

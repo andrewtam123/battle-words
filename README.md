@@ -32,8 +32,8 @@ For local battles, run `npm ci` once, then `npm run battle:dev` in another termi
 
 - Every game has exactly 20 rounds, in this fixed length sequence: `4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10` (two 4-letter words, five 5-letter words, six 6-letter words, three 7-letter words, two 8-letter words, one 9-letter word, and one 10-letter word).
 - Each round starts with 30 seconds. Use every tile once to make a word. A valid complete answer advances automatically; invalid answers clear for another attempt while time continues. A timeout shows an answer and records a miss.
-- Click or tap letter tiles, or type letters. Clicking a selected tile clears the answer from that character's last occurrence onward, including that occurrence. With repeated letters, either selected tile of the same letter has the same effect. Backspace removes only the last letter; Clear empties the entry.
-- Shuffle is available once per round through its button. There are no global Space or Shift shortcuts. It rearranges the same letters and does not reset the clock.
+- Click or tap letter tiles, or type letters. Clicking a selected tile clears the answer from that character's last occurrence onward, including that occurrence. With repeated letters, either selected tile of the same letter has the same effect. Backspace removes only the last letter; Ctrl+Backspace or Clear empties the entry.
+- Shuffle is available once per round through its button or Space alone. There is no Shift shortcut. It rearranges the same letters and does not reset the clock.
 - Pause freezes the timer and hides the puzzle. Backgrounding the page also pauses it; return and press Resume. The final screen shows the score and answers for the current game.
 
 Each new game seeds one deterministic **xoshiro128\*\*** generator with `Date.now()` (milliseconds since the Unix epoch). It chooses all 20 target words before consuming randomness to scramble tiles. Each target is drawn independently and uniformly from the deduplicated **SCOWL level 35 and below** puzzle pool of the required length. The index selection uses rejection sampling to avoid modulo bias. Draws are **with replacement**, so a word or anagram group may repeat within or across games. There is no group sampling, frequency weighting, queue, or repeat history. The same seed and vocabulary produce the same selected words.
@@ -42,15 +42,19 @@ Any word in the accepted vocabulary made from exactly the available letters coun
 
 ## Battle rules
 
-Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player.
+Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player. The same controls apply as in solo: Space shuffles and Ctrl+Backspace clears, with both buttons still available.
 
-The authority's first valid receipt wins, unless the other player's valid answer arrives **strictly less than 200 ms later**, in which case the round ties and neither scores. Both must arrive **before** the shared 30-second deadline. No provisional winner is shown to either player. Invalid answers get immediate local feedback; the server still verifies submitted claims. A valid entry stays filled until the result: green for a win, grey for a tie, or red with “Almost!” for a correct answer that lost.
+The authority's first valid receipt wins, unless the other player's valid answer arrives **strictly less than 200 ms later**, in which case the round ties. A win earns **1 point**; a tie earns **0.5 points for each player**; neither solving earns zero. Both answers in a tie must arrive **before** the shared 30-second deadline. No provisional winner is shown to either player. Invalid answers get immediate local feedback; the server still verifies submitted claims. A valid entry stays filled until the result: green for a win, grey for a tie or shared miss, or red with “Almost!” for a correct answer that lost. A shared miss has a grey progress cell with a small centered dash (`–`), distinct from a tie's equals sign and a personal loss's red cross.
 
-Both players see an answer for two seconds after each round. The most wins after 20 rounds wins the match; equal scores draw. Battle never pauses, including when Help is open or both players disconnect. Unstarted rooms expire after 30 minutes. Finished room links show public results with no automatic expiry and can be viewed by any number of people.
+Both players see an answer for two seconds after each round. The highest score after 20 rounds wins the match; equal scores draw. Battle never pauses, including when Help is open or both players disconnect. Unstarted rooms expire after 30 minutes. Finished room links show public results with no automatic expiry and can be viewed by any number of people. Historical scores also count 0.5 points per player for each tie.
+
+The results review shows each original target with distinct submitted alternative answers beneath it. Beside the word, `✓ Player (4.2s)` identifies the winner, `= Tied (4.2s)` shows a tie, and `× Missed` marks a shared miss without a time. For a shared miss, the word and `× Missed` use the same red as solo missed results. Solve times are measured at server receipt and displayed to one decimal place; ties show the lower of the two times.
 
 ## Mobile and storage
 
 The responsive interface supports touch, portrait and landscape layouts, and hardware keyboards. It does not require opening a phone's keyboard. The manifest and icons support an optional home-screen entry where the browser provides that feature.
+
+Gameplay shortcuts work only during active play, outside text fields and dialogs. Space still shuffles when a letter tile has keyboard focus; other focused buttons and links keep their normal Space behavior.
 
 During play, wide windows place round information beside the letters. Narrow screens use compact scores and progress; the smallest portrait screens hide the history grid while retaining the current round, score and timer. Letter buttons stay at least 44 pixels across at the tested phone sizes, and unusual zoom or long messages can still scroll instead of being clipped.
 
@@ -110,6 +114,7 @@ The archive SHA-256 is `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba2
 - `dist/js/game-view.js`: shared answer/tile/timer rendering and keyboard filtering for both modes.
 - `dist/js/app.js`: screens, touch/keyboard controls, lifecycle events, and feedback.
 - `dist/js/battle-rules.js`: pure authoritative match transitions, arbitration and safe projections.
+- `dist/js/battle-scoring.js`: shared score calculation from round outcomes, including half-points for historical ties.
 - `dist/js/battle-client.js` and `battle-ui.js`: browser connection, local input and battle screens.
 - `dist/js/battle-feedback.js`: battle-specific outcome feedback.
 - `dist/js/battle-protocol.js` and `battle-config.js`: shared version contract and public service URL.

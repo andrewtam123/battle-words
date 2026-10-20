@@ -57,13 +57,32 @@ export function renderTimer({ timer, seconds, fill }, remainingMs) {
   return count;
 }
 
-/** Call only when the mode accepts input; leave native button/Tab behavior intact. */
+/** Call only when the mode accepts input; preserve native controls outside the letter tiles. */
 export function readGameKey(event, tiles) {
-  if (event.ctrlKey || event.metaKey || event.altKey || event.repeat ||
-      event.target.closest('input, textarea, [contenteditable="true"]')) return null;
-  if (!/^[a-z]$/i.test(event.key) && event.key !== 'Backspace') return null;
+  const target = event.target;
+  if (event.defaultPrevented || event.isComposing || event.metaKey || event.altKey ||
+      target?.isContentEditable || target?.closest?.('input, textarea, select')) return null;
+
+  let method;
+  if (event.key === ' ' && !event.ctrlKey && !event.shiftKey) {
+    const control = target?.closest?.('button, a[href], summary, [role="button"], [role="link"]');
+    if (control && !(control.matches('button[data-tile]') && tiles.contains(control))) return null;
+    method = 'shuffle';
+  } else if (event.key === 'Backspace') {
+    if (event.ctrlKey && event.shiftKey) return null;
+    method = event.ctrlKey ? 'clear' : 'backspace';
+  } else if (!event.ctrlKey && /^[a-z]$/i.test(event.key)) {
+    method = 'typeLetter';
+  } else {
+    return null;
+  }
+
+  const shortcut = method === 'shuffle' || method === 'clear';
+  if (event.repeat && !shortcut) return null;
   event.preventDefault();
+  // Holding a shortcut must not repeat its action or start scrolling the page.
+  if (event.repeat) return null;
   const focused = document.activeElement;
   if (focused?.matches('button[data-tile]') && tiles.contains(focused)) focused.blur();
-  return { method: event.key === 'Backspace' ? 'backspace' : 'typeLetter', value: event.key };
+  return { method, value: event.key };
 }

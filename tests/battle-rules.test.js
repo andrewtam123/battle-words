@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { WORD_LENGTHS, ROUND_MS, chooseWords } from '../dist/js/engine.js';
+import { battleScores } from '../dist/js/battle-scoring.js';
 import {
   createMatch, joinSeat, readyPlayer, advanceMatch, submitAnswer, shufflePlayer,
   nextAlarmAt, snapshotFor, publicResults,
@@ -149,7 +150,7 @@ test('first valid receipt waits the full 200ms before awarding exactly one point
   assert.deepEqual(match.scores, [1, 0]);
 });
 
-test('different valid anagrams arriving 199ms apart tie and award no points', () => {
+test('different valid anagrams arriving 199ms apart tie and award half a point each', () => {
   const match = playing();
   const at = match.startAt + 500;
   submit(match, 1, at, { answer: 'race' });
@@ -159,7 +160,60 @@ test('different valid anagrams arriving 199ms apart tie and award no points', ()
   assert.equal(match.results[0].outcome, 'tie');
   assert.equal(match.results[0].winner, null);
   assert.deepEqual(match.results[0].answers, ['acre', 'race']);
-  assert.deepEqual(match.scores, [0, 0]);
+  assert.deepEqual(match.results[0].elapsedMs, [699, 500]);
+  assert.deepEqual(match.scores, [0.5, 0.5]);
+});
+
+test('scores count wins, ties and misses using only completed outcomes', () => {
+  const results = [
+    { outcome: 'win', winner: 0 }, { outcome: 'tie', winner: null },
+    { outcome: 'timeout', winner: null }, { outcome: 'win', winner: 1 },
+    { outcome: 'tie', winner: null }, { outcome: 'win', winner: 1 },
+  ];
+  const original = clone(results);
+  assert.deepEqual(battleScores([]), [0, 0]);
+  assert.deepEqual(battleScores(results), [2, 3]);
+  assert.deepEqual(results, original);
+});
+
+test('restored active rooms receive past tie points without changing deadlines or pending claims', () => {
+  let match = playing();
+  const at = match.startAt + 500;
+  submit(match, 0, at);
+  submit(match, 1, at + 100);
+  advanceMatch(match, at + TIE_MS + REVEAL_MS);
+  const secondAt = match.startAt + 100;
+  submit(match, 0, secondAt);
+  match.scores = [0, 0]; // Persisted under the old zero-point tie rule.
+  match = clone(match);
+  const original = clone(match);
+  assert.deepEqual(snapshotFor(match, 0, secondAt).scores, [0.5, 0.5]);
+  assert.deepEqual(match, original, 'read-only projections must not migrate stored state');
+  assert.equal(advanceMatch(match, secondAt), true);
+  assert.deepEqual(match, { ...original, scores: [0.5, 0.5] });
+  assert.equal(advanceMatch(match, secondAt), false, 'normalization is idempotent');
+  advanceMatch(match, secondAt + TIE_MS);
+  assert.deepEqual(match.scores, [1.5, 0.5]);
+});
+
+test('ties remain half a point each after persistence and retries in later rounds', () => {
+  let match = playing();
+  const at = match.startAt + 500;
+  const first = submit(match, 0, at, { submissionId: 'tied-first' });
+  const second = submit(match, 1, at + 100, { submissionId: 'tied-second' });
+  advanceMatch(match, at + TIE_MS);
+  match = clone(match);
+  advanceMatch(match, at + TIE_MS + REVEAL_MS);
+  for (const [seat, submissionId, response] of [
+    [0, 'tied-first', first], [1, 'tied-second', second],
+  ]) {
+    assert.deepEqual(submit(match, seat, match.startAt + 10, {
+      round: 0, submissionId, answer: 'care',
+    }), response);
+  }
+  assert.equal(match.results.length, 1);
+  assert.deepEqual(match.scores, [0.5, 0.5]);
+  assert.deepEqual(match.rounds[1].claims, [null, null]);
 });
 
 test('submissions exactly 200ms apart do not tie even when no alarm has run', () => {
@@ -302,7 +356,7 @@ test('a full match finishes with no clients or incoming requests, preserving per
   assert.deepEqual(publicResults(match), result);
 });
 
-test('twenty outcomes produce the highest-win match winner and equal totals produce a draw', () => {
+test('twenty outcomes produce the highest-score match winner and equal totals produce a draw', () => {
   for (const split of [false, true]) {
     const match = playing();
     for (let index = 0; index < 20; index += 1) {
@@ -315,6 +369,32 @@ test('twenty outcomes produce the highest-win match winner and equal totals prod
     assert.deepEqual(result.scores, split ? [10, 10] : [0, 20]);
     assert.equal(result.winner, split ? null : 1);
   }
+});
+
+test('finished legacy results regain all tie points while preserving outcomes and finish time', () => {
+  const match = playing();
+  for (let index = 0; index < 20; index += 1) {
+    const at = match.startAt + 100;
+    if (index % 4 === 0) {
+      submit(match, 0, at);
+      submit(match, 1, at + 100);
+    } else if (index % 4 !== 3) {
+      submit(match, index % 4 === 1 ? 0 : 1, at);
+    }
+    advanceMatch(match, index % 4 === 3 ? match.deadline + REVEAL_MS : at + TIE_MS + REVEAL_MS);
+  }
+  assert.equal(match.phase, 'finished');
+  assert.deepEqual(match.scores, [7.5, 7.5]);
+  match.scores = [5, 5];
+  const original = clone(match);
+  const result = publicResults(match);
+  assert.deepEqual(result.scores, [7.5, 7.5]);
+  assert.equal(result.winner, null);
+  assert.deepEqual(match, original);
+  assert.equal(advanceMatch(match, match.finishedAt + 1_000_000), true);
+  assert.deepEqual(match, { ...original, scores: [7.5, 7.5] });
+  assert.equal(advanceMatch(match, match.finishedAt + 2_000_000), false);
+  assert.deepEqual(publicResults(match), result);
 });
 
 test('snapshots and public results cannot mutate authority state and snapshots do not advance time', () => {

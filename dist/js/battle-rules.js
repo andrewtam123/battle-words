@@ -1,5 +1,6 @@
 /** Authoritative battle rules. State is JSON-serializable; callers own storage and transport. */
 import { ROUND_MS, createRng, drawWords, scrambledTiles, isValidAnswer } from './game-core.js';
+import { battleScores } from './battle-scoring.js';
 import {
   PROTOCOL_VERSION, DICTIONARY_VERSION, COUNTDOWN_MS, TIE_MS, REVEAL_MS, LOBBY_MS,
 } from './battle-protocol.js';
@@ -74,7 +75,6 @@ function finishRound(match, at) {
   const claims = round.claims;
   const count = claims.filter(Boolean).length;
   const winner = count === 1 ? claims.findIndex(Boolean) : null;
-  if (winner !== null) match.scores[winner] += 1;
   match.results.push({
     round: match.index,
     target: round.target,
@@ -111,6 +111,13 @@ export function advanceMatch(match, now) {
     } else {
       break;
     }
+    changed = true;
+  }
+  // Resolved outcomes are authoritative, so older rooms also receive tie points
+  // on their next normal operation without replaying rounds or changing clocks.
+  const scores = battleScores(match.results);
+  if (scores.some((score, seat) => score !== match.scores[seat])) {
+    match.scores = scores;
     changed = true;
   }
   return changed;
@@ -175,7 +182,7 @@ export function snapshotFor(match, seat, now) {
     index: match.index,
     roundCount: match.rounds.length,
     players: copy(match.players),
-    scores: [...match.scores],
+    scores: battleScores(match.results),
     startAt: match.startAt,
     deadline: match.deadline,
     revealUntil: match.revealUntil,
@@ -192,13 +199,14 @@ export function snapshotFor(match, seat, now) {
 
 export function publicResults(match) {
   if (match.phase !== 'finished') return null;
+  const scores = battleScores(match.results);
   return {
     protocolVersion: match.protocolVersion,
     dictionaryVersion: match.dictionaryVersion,
     id: match.id,
     players: copy(match.players),
-    scores: [...match.scores],
-    winner: match.scores[0] === match.scores[1] ? null : match.scores[0] > match.scores[1] ? 0 : 1,
+    scores,
+    winner: scores[0] === scores[1] ? null : scores[0] > scores[1] ? 0 : 1,
     results: copy(match.results),
     finishedAt: match.finishedAt,
   };
