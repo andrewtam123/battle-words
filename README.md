@@ -32,7 +32,7 @@ For local battles, run `npm ci` once, then `npm run battle:dev` in another termi
 
 - Every game has exactly 20 rounds, in this fixed length sequence: `4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 8, 8, 9, 10` (two 4-letter words, five 5-letter words, six 6-letter words, three 7-letter words, two 8-letter words, one 9-letter word, and one 10-letter word).
 - Each round starts with 30 seconds. Use every tile once to make a word. A valid complete answer advances automatically; invalid answers clear for another attempt while time continues. A timeout shows an answer and records a miss.
-- Click or tap letter tiles, or type letters. Clicking a selected tile clears the answer from that character's last occurrence onward, including that occurrence. With repeated letters, either selected tile of the same letter has the same effect. Backspace removes only the last letter; Ctrl+Backspace or Clear empties the entry.
+- Click or tap letter tiles, or type letters. Clicking a selected tile clears the answer from that character's last occurrence onward, including that occurrence. With repeated letters, either selected tile of the same letter has the same effect. Backspace removes only the last letter; Clear, Cmd+Backspace on Mac, or Ctrl+Backspace elsewhere empties the entry.
 - Shuffle is available once per round through its button or Space alone. There is no Shift shortcut. It rearranges the same letters and does not reset the clock.
 - Pause freezes the timer and hides the puzzle. Backgrounding the page also pauses it; return and press Resume. The final screen shows the score and answers for the current game.
 
@@ -42,7 +42,7 @@ Any word in the accepted vocabulary made from exactly the available letters coun
 
 ## Battle rules
 
-Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player. The same controls apply as in solo: Space shuffles and Ctrl+Backspace clears, with both buttons still available.
+Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player. The same controls apply as in solo: Space shuffles; Cmd+Backspace on Mac or Ctrl+Backspace elsewhere clears, with both buttons still available.
 
 The authority's first valid receipt wins, unless the other player's valid answer arrives **strictly less than 200 ms later**, in which case the round ties. A win earns **1 point**; a tie earns **0.5 points for each player**; neither solving earns zero. Both answers in a tie must arrive **before** the shared 30-second deadline. No provisional winner is shown to either player. Invalid answers get immediate local feedback; the server still verifies submitted claims. A valid entry stays filled until the result: green for a win, grey for a tie or shared miss, or red with “Almost!” for a correct answer that lost. A shared miss has a grey progress cell with a small centered dash (`–`), distinct from a tie's equals sign and a personal loss's red cross.
 

@@ -57,21 +57,30 @@ export function renderTimer({ timer, seconds, fill }, remainingMs) {
   return count;
 }
 
+export function getClearShortcut(platform = globalThis.navigator?.userAgentData?.platform || globalThis.navigator?.platform || '') {
+  return /^Mac/i.test(platform)
+    ? { modifier: 'metaKey', label: 'Cmd+Backspace', aria: 'Meta+Backspace' }
+    : { modifier: 'ctrlKey', label: 'Ctrl+Backspace', aria: 'Control+Backspace' };
+}
+
 /** Call only when the mode accepts input; preserve native controls outside the letter tiles. */
-export function readGameKey(event, tiles) {
+export function readGameKey(event, tiles, clearShortcut = getClearShortcut()) {
   const target = event.target;
-  if (event.defaultPrevented || event.isComposing || event.metaKey || event.altKey ||
+  if (event.defaultPrevented || event.isComposing || event.altKey ||
       target?.isContentEditable || target?.closest?.('input, textarea, select')) return null;
 
+  const clear = event.key === 'Backspace' && event[clearShortcut.modifier] &&
+    !event.shiftKey && !(event.ctrlKey && event.metaKey);
+  if ((event.ctrlKey || event.metaKey) && !clear) return null;
+
   let method;
-  if (event.key === ' ' && !event.ctrlKey && !event.shiftKey) {
+  if (event.key === ' ' && !event.shiftKey) {
     const control = target?.closest?.('button, a[href], summary, [role="button"], [role="link"]');
     if (control && !(control.matches('button[data-tile]') && tiles.contains(control))) return null;
     method = 'shuffle';
   } else if (event.key === 'Backspace') {
-    if (event.ctrlKey && event.shiftKey) return null;
-    method = event.ctrlKey ? 'clear' : 'backspace';
-  } else if (!event.ctrlKey && /^[a-z]$/i.test(event.key)) {
+    method = clear ? 'clear' : 'backspace';
+  } else if (/^[a-z]$/i.test(event.key)) {
     method = 'typeLetter';
   } else {
     return null;

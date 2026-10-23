@@ -25,7 +25,7 @@ The subsequent keyboard-shortcut update has **101 passing Node tests**, includin
 - Unlimited new games, no daily challenge or account requirement. The current solo app has no backend, database, external runtime library, analytics, or remote dictionary API. Battle mode is an explicitly requested exception: it uses an authoritative Cloudflare Worker and SQLite-backed Durable Objects. Solo must remain independent of that service.
 - Solo game state lives only in memory. Reloading or closing the page loses the solo game. **Solo game recovery and saved scores/statistics remain excluded.** Battle specifically persists server match state/results and browser names/seat credentials, as requested; see the battle section below. The user has now requested persistent local **build definitions**, which is a specific exception to the earlier no-persistence scope, not permission to save active words, seeds, timer, answers or progress. No build storage exists yet.
 - There is currently **no service worker or deliberate offline cache**. A loaded solo game can keep running without additional gameplay requests, but offline reload/launch is not promised. The manifest alone does not provide offline support.
-- Preserve touch/mobile play and hardware keyboard support. In both modes, unmodified **Space** shuffles once per round and **Ctrl+Backspace** clears the entry; Shuffle and Clear buttons remain available. There is no Shift shuffle shortcut. Ignore gameplay keys in editable fields, open dialogs and inactive gameplay. Focused non-tile buttons and links retain normal Space activation; Space on a focused letter tile shuffles.
+- Preserve touch/mobile play and hardware keyboard support. In both modes, unmodified **Space** shuffles once per round; **Cmd+Backspace on Mac** or **Ctrl+Backspace elsewhere** clears the entry. Shuffle and Clear buttons remain available. There is no Shift shuffle shortcut. Ignore gameplay keys in editable fields, open dialogs and inactive gameplay. Focused non-tile buttons and links retain normal Space activation; Space on a focused letter tile shuffles.
 
 ## Architecture and edit locations
 
@@ -66,7 +66,7 @@ Do not add a queue, anagram-group sampling, frequency weighting, duplicate preve
 
 Tiles have stable IDs, including duplicate letters. A full selection submits automatically. Any accepted word using exactly the available letters succeeds; the selected target is also always accepted by the engine. Invalid full guesses clear the selection and permit immediate retry while the timer keeps running; the UI briefly displays the rejected entry.
 
-Clicking a **selected** tile removes the suffix starting at the **last occurrence of that character in the current entry**, inclusive. Example: with `NNO` entered, clicking either selected N leaves `N`. This is deliberately different from removing one tile and shifting the rest. Backspace removes only the last selected tile; Ctrl+Backspace or Clear removes everything.
+Clicking a **selected** tile removes the suffix starting at the **last occurrence of that character in the current entry**, inclusive. Example: with `NNO` entered, clicking either selected N leaves `N`. This is deliberately different from removing one tile and shifting the rest. Backspace removes only the last selected tile; Clear, Cmd+Backspace on Mac, or Ctrl+Backspace elsewhere removes everything.
 
 Shuffle clears the entry and preserves the target, tile identities and remaining time. Scrambling avoids the target spelling and, on shuffle, the previous visible order when another permutation exists. Its bounded fallback must still terminate for repeated/identical-letter inputs.
 
@@ -154,7 +154,7 @@ Automated coverage is 24 engine tests, 7 data tests and 6 loader tests at the re
 For UI/lifecycle changes, complement the relevant Node tests with browser smoke checks:
 
 1. Load at the repository subpath; verify startup and dictionary-error/retry behavior when relevant.
-2. Exercise touch/click and typing, repeated letters, selected-letter suffix removal, Backspace, Ctrl+Backspace, invalid answers and single-use shuffle through both its button and unmodified Space. Check keyboard focus, Space on focused tiles versus other buttons/links, editable-field/dialog/inactive-play guards, and the absence of a Shift shuffle shortcut.
+2. Exercise touch/click and typing, repeated letters, selected-letter suffix removal, Backspace, Cmd+Backspace on Mac or Ctrl+Backspace elsewhere, invalid answers and single-use shuffle through both its button and unmodified Space. Check keyboard focus, Space on focused tiles versus other buttons/links, editable-field/dialog/inactive-play guards, and the absence of a Shift shuffle shortcut.
 3. Pause/resume, open/close dialogs, switch tabs/apps, and restart during feedback; confirm no hidden timer loss or stale round transition.
 4. Verify 9- and 10-letter rounds at narrow mobile widths (including 320 px), results out of 20, word review and another fresh game. Check landscape/short-height layouts when styling changes.
 

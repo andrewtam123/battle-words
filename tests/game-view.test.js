@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readGameKey } from '../dist/js/game-view.js';
+import { readGameKey, getClearShortcut } from '../dist/js/game-view.js';
 
 function node({ tag = 'div', parent = null, tile = false, href = false, role,
   contentEditable } = {}) {
@@ -44,6 +44,12 @@ function keyEvent(key, target, options = {}) {
 }
 
 function setup(t) {
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { platform: 'Win32' } });
+  t.after(() => {
+    if (previousNavigator) Object.defineProperty(globalThis, 'navigator', previousNavigator);
+    else delete globalThis.navigator;
+  });
   const body = node({ tag: 'body' });
   const tiles = node({ parent: body });
   const tile = node({ tag: 'button', parent: tiles, tile: true });
@@ -56,6 +62,79 @@ function setup(t) {
   });
   return { body, tiles, tile, document };
 }
+
+test('clear shortcut labels and modifiers follow the platform', t => {
+  setup(t);
+  for (const platform of ['MacIntel', 'MacPPC', 'macOS']) {
+    assert.deepEqual(getClearShortcut(platform), { modifier: 'metaKey', label: 'Cmd+Backspace', aria: 'Meta+Backspace' });
+  }
+  for (const platform of ['Win32', 'Windows', 'Linux x86_64', 'Android', '']) {
+    assert.deepEqual(getClearShortcut(platform), { modifier: 'ctrlKey', label: 'Ctrl+Backspace', aria: 'Control+Backspace' });
+  }
+  globalThis.navigator.platform = 'MacIntel';
+  assert.equal(getClearShortcut().modifier, 'metaKey');
+  globalThis.navigator.userAgentData = { platform: 'Windows' };
+  assert.equal(getClearShortcut().modifier, 'ctrlKey');
+  globalThis.navigator.userAgentData.platform = 'macOS';
+  assert.equal(getClearShortcut().modifier, 'metaKey');
+});
+
+test('Mac uses Cmd+Backspace to clear and preserves ordinary typing, Backspace and shuffle', t => {
+  const { tiles, tile, document } = setup(t);
+  globalThis.navigator.platform = 'MacIntel';
+  document.activeElement = tile;
+  for (const [key, options, method] of [
+    ['Backspace', { metaKey: true }, 'clear'],
+    ['Backspace', {}, 'backspace'],
+    ['Backspace', { shiftKey: true }, 'backspace'],
+    [' ', {}, 'shuffle'],
+    ['A', { shiftKey: true }, 'typeLetter'],
+  ]) {
+    tile.blurred = false;
+    const event = keyEvent(key, tile, options);
+    assert.deepEqual(readGameKey(event, tiles), { method, value: key });
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(tile.blurred, true);
+  }
+});
+
+test('Mac ignores other modified keys and preserves editing in text controls', t => {
+  const { body, tiles, tile, document } = setup(t);
+  const shortcut = getClearShortcut('macOS');
+  document.activeElement = tile;
+  for (const [key, options] of [
+    ['Backspace', { ctrlKey: true }],
+    ['Backspace', { metaKey: true, ctrlKey: true }],
+    ['Backspace', { metaKey: true, shiftKey: true }],
+    ['Backspace', { metaKey: true, altKey: true }],
+    ['Backspace', { metaKey: true, isComposing: true }],
+    ['Backspace', { metaKey: true, defaultPrevented: true }],
+    ['a', { metaKey: true }], ['a', { ctrlKey: true }],
+    [' ', { metaKey: true }], [' ', { ctrlKey: true }],
+  ]) {
+    const event = keyEvent(key, body, options);
+    assert.equal(readGameKey(event, tiles, shortcut), null);
+    assert.equal(event.defaultPrevented, options.defaultPrevented ?? false);
+    assert.equal(tile.blurred, false);
+  }
+  for (const target of [
+    node({ tag: 'input' }), node({ tag: 'textarea' }), node({ tag: 'select' }),
+    node({ parent: node({ contentEditable: true }) }),
+  ]) {
+    const event = keyEvent('Backspace', target, { metaKey: true });
+    assert.equal(readGameKey(event, tiles, shortcut), null);
+    assert.equal(event.defaultPrevented, false);
+  }
+});
+
+test('holding Cmd+Backspace on Mac prevents the default without repeating Clear', t => {
+  const { tiles, tile, document } = setup(t);
+  document.activeElement = tile;
+  const event = keyEvent('Backspace', tile, { metaKey: true, repeat: true });
+  assert.equal(readGameKey(event, tiles, getClearShortcut('MacIntel')), null);
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(tile.blurred, false);
+});
 
 test('keyboard maps Space to shuffle and Ctrl+Backspace to clear alongside existing input', t => {
   const { body, tiles } = setup(t);

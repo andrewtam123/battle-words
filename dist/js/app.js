@@ -1,7 +1,7 @@
 import { GameEngine } from './engine.js';
 import { WORD_LENGTHS } from './game-core.js';
 import {
-  element as node, renderAnswer, renderTiles, renderTimer, readGameKey,
+  element as node, renderAnswer, renderTiles, renderTimer, readGameKey, getClearShortcut,
   INVALID_FEEDBACK_MS, INVALID_FEEDBACK_TEXT,
 } from './game-view.js';
 import { loadWordBank } from './word-bank.js';
@@ -15,6 +15,13 @@ const ui = Object.fromEntries([
   'restart', 'play-again', 'results-title', 'final-score', 'result-caption', 'result-grid',
   'word-review', 'help-dialog', 'about-dialog', 'dictionary-info',
 ].map(id => [id, $(id)]));
+
+const clearShortcut = getClearShortcut();
+for (const button of [ui.clear, $('battle-clear')]) {
+  button.title = `Clear (${clearShortcut.label})`;
+  button.setAttribute('aria-keyshortcuts', clearShortcut.aria);
+}
+$('clear-shortcut').textContent = clearShortcut.label;
 
 let engine;
 let animationFrame = 0;
