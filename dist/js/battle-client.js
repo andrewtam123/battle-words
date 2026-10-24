@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, DICTIONARY_VERSION } from './battle-protocol.js';
+import { PROTOCOL_VERSION, DICTIONARY_VERSION, isCompatibleMatchDictionary } from './battle-protocol.js';
 
 export const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 const ID = /^[a-f0-9]{32}$/;
@@ -208,7 +208,7 @@ export class BattleClient {
 
   acceptState(state, ws) {
     if (!state || state.id !== this.roomId) return;
-    if (state.protocolVersion !== PROTOCOL_VERSION || state.dictionaryVersion !== DICTIONARY_VERSION) {
+    if (state.protocolVersion !== PROTOCOL_VERSION || !isCompatibleMatchDictionary(state.dictionaryVersion)) {
       this.stop(false);
       this.setStatus('disconnected');
       this.onError(Object.assign(new Error('The game has been updated. Reload before continuing.'), { code: 'VERSION_MISMATCH' }));

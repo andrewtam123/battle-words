@@ -1,4 +1,4 @@
-import pools from '../dist/data/puzzle-words.json' with { type: 'json' };
+import pools from '../dist/data/target-pools.json' with { type: 'json' };
 import acceptedPools from '../dist/data/words.json' with { type: 'json' };
 import { RoomService } from './room.js';
 import { routeRequest } from './http.js';

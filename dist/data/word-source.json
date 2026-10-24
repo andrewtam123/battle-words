@@ -187,6 +187,9 @@
       "final/variant_2-words.10",
       "final/variant_2-words.20",
       "final/variant_2-words.35"
-    ]
+    ],
+    "classifiedFile": "target-pools.json",
+    "classificationMetadata": "target-source.json",
+    "classifiedSha256": "4de0f47dd08b450262ba32a1e6230e5c85a387acfb97857ce9098eeba88d75f7"
   }
 }

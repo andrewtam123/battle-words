@@ -6,6 +6,7 @@ import { PROTOCOL_VERSION, DICTIONARY_VERSION } from '../dist/js/battle-protocol
 
 const storage = () => { const map = new Map(); return { getItem: key => map.get(key), setItem: (key,value) => map.set(key,value) }; };
 const id = 'a'.repeat(32);
+const legacyDictionaryVersion = 'scowl-2020.12.07:0ac42b1613d53c6f06b4b7f240b00086c3a2f96b596c0e966b00bc16fa964f7d:dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de';
 
 test('pending words have no outcome; final feedback distinguishes wins, ties and late correct losses', () => {
   assert.deepEqual(roundFeedback(null,0,'care'), {appearance:'',text:''});
@@ -129,4 +130,72 @@ test('reconnect resends one pending submission with its original ID and drops it
   assert.deepEqual(sent[0],sent[1]);
   client.acceptState({...state,index:1},restoredSocket);
   assert.equal(client.pending,null);
+});
+
+test('known pre-classification rooms reconnect without rewriting their dictionary version', async () => {
+  const received = [];
+  const errors = [];
+  const sent = [];
+  const client = new BattleClient({
+    apiUrl: 'https://example.test', storage: storage(), now: () => 1000,
+    onState: state => received.push(state), onError: error => errors.push(error),
+    fetchImpl: async (url, options) => {
+      const body = JSON.parse(options.body);
+      assert.equal(body.dictionaryVersion, DICTIONARY_VERSION, 'HTTP pairing still uses the current release');
+      assert.equal(body.version, PROTOCOL_VERSION);
+      return Response.json({ seat: 0 });
+    },
+  });
+  await client.join(id, 'Alex');
+  client.roomId = id;
+  client.status = 'connected';
+  client.pending = { round: 0, answer: 'care', submissionId: 'original-submission' };
+  const socket = { readyState: 1, send: message => sent.push(JSON.parse(message)) };
+  client.socket = socket;
+  const state = {
+    id, protocolVersion: PROTOCOL_VERSION, dictionaryVersion: legacyDictionaryVersion,
+    serverNow: 1000, index: 0, phase: 'playing', ownSubmission: null,
+  };
+  client.acceptState(state, socket);
+  assert.equal(client.status, 'connected');
+  assert.deepEqual(received, [state]);
+  assert.equal(state.dictionaryVersion, legacyDictionaryVersion);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(sent, [{ type: 'submit', round: 0, answer: 'care', submissionId: 'original-submission' }]);
+});
+
+test('legacy room support does not allow unknown dictionaries or mismatched protocols', () => {
+  for (const [dictionaryVersion, protocolVersion] of [
+    [legacyDictionaryVersion.replace('dbd074bb', '00000000'), PROTOCOL_VERSION],
+    [legacyDictionaryVersion.replace('0ac42b16', '00000000'), PROTOCOL_VERSION],
+    [legacyDictionaryVersion, PROTOCOL_VERSION + 1],
+    [DICTIONARY_VERSION, PROTOCOL_VERSION + 1],
+    ['unknown', PROTOCOL_VERSION],
+  ]) {
+    const errors = [];
+    const client = new BattleClient({
+      apiUrl: 'https://example.test', storage: storage(),
+      onState: () => assert.fail('incompatible state must not be rendered'),
+      onError: error => errors.push(error),
+    });
+    client.roomId = id;
+    client.status = 'connected';
+    client.acceptState({ id, dictionaryVersion, protocolVersion, phase: 'playing' });
+    assert.equal(client.state, null);
+    assert.equal(client.status, 'disconnected');
+    assert.equal(errors[0].code, 'VERSION_MISMATCH');
+  }
+});
+
+test('completed public links remain readable with their original dictionary version', async () => {
+  const result = { id, phase: 'finished', dictionaryVersion: legacyDictionaryVersion, results: { rounds: [] } };
+  const client = new BattleClient({
+    apiUrl: 'https://example.test', storage: storage(),
+    fetchImpl: async (url, options) => {
+      assert.equal(options.method, 'GET');
+      assert.equal(options.body, undefined);
+      return Response.json(result);
+    },
+  });
+  assert.deepEqual(await client.open(id), result);
 });

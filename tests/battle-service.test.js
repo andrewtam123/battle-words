@@ -92,6 +92,9 @@ test('enforces origin, protocol, credential, names and payload limits before res
   assert.equal((await room.fetch(request('create', player(0), 'https://evil.test'))).status, 403);
   assert.equal((await room.fetch(request('create', player(0, { version: 99 })))).status, 409);
   assert.equal((await room.fetch(request('create', player(0, { dictionaryVersion: 'other' })))).status, 409);
+  const legacyDictionaryVersion = 'scowl-2020.12.07:0ac42b1613d53c6f06b4b7f240b00086c3a2f96b596c0e966b00bc16fa964f7d:dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de';
+  assert.notEqual(DICTIONARY_VERSION, legacyDictionaryVersion);
+  assert.equal((await room.fetch(request('create', player(0, { dictionaryVersion: legacyDictionaryVersion })))).status, 409);
   assert.equal((await room.fetch(request('create', player(0, { credential: 'short' })))).status, 400);
   assert.equal((await room.fetch(request('create', player(0, { name: 'x'.repeat(25) })))).status, 400);
   assert.equal((await room.fetch(request('create', player(0, { extra: 'x'.repeat(5000) })))).status, 413);

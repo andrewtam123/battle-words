@@ -59,7 +59,17 @@ export function randomIndex(rng, length) {
 
 export function drawWords(pools, rng) {
   return WORD_LENGTHS.map((length) => {
-    const pool = pools[length];
+    let pool = pools[length];
+    // Array pools retain their original uniform draws and random stream. The
+    // shipped classified pools first choose a category, independently each round.
+    if (pool && !Array.isArray(pool)) {
+      for (const category of ['normal', 'specialized']) {
+        if (!Array.isArray(pool[category]) || pool[category].length === 0) {
+          throw new RangeError(`The ${length}-letter ${category} word pool is empty or missing.`);
+        }
+      }
+      pool = pool[randomIndex(rng, 5) < 4 ? 'normal' : 'specialized'];
+    }
     if (!Array.isArray(pool) || pool.length === 0) {
       throw new RangeError(`The ${length}-letter word pool is empty or missing.`);
     }
@@ -71,7 +81,7 @@ export function drawWords(pools, rng) {
   });
 }
 
-/** Twenty independent, uniform word draws with replacement; no group weighting. */
+/** Independent draws with replacement; classified pools use an 80:20 category split. */
 export function chooseWords(pools, seed = Date.now()) {
   return drawWords(pools, createRng(seed));
 }

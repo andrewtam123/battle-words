@@ -10,6 +10,7 @@ import {
 } from '../dist/js/battle-rules.js';
 import {
   PROTOCOL_VERSION, DICTIONARY_VERSION, ACCEPTED_WORDS_SHA256, TARGET_WORDS_SHA256,
+  CLASSIFIED_TARGETS_SHA256, TARGET_SELECTION_POLICY,
   COUNTDOWN_MS, TIE_MS, REVEAL_MS, LOBBY_MS,
 } from '../dist/js/battle-protocol.js';
 
@@ -42,14 +43,22 @@ function submit(match, seat, at, options = {}) {
   }, accepted, at);
 }
 
-test('battle protocol dictionary version pins the actual target and accepted bank bytes', async () => {
-  for (const [file, expected] of [['words.json', ACCEPTED_WORDS_SHA256], ['puzzle-words.json', TARGET_WORDS_SHA256]]) {
+test('battle protocol dictionary version pins targets, classification policy and accepted bank bytes', async () => {
+  for (const [file, expected] of [
+    ['words.json', ACCEPTED_WORDS_SHA256], ['puzzle-words.json', TARGET_WORDS_SHA256],
+    ['target-pools.json', CLASSIFIED_TARGETS_SHA256],
+  ]) {
     const bytes = await readFile(new URL(`../dist/data/${file}`, import.meta.url));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), expected);
   }
   assert.equal(PROTOCOL_VERSION, 1);
   assert.ok(DICTIONARY_VERSION.includes(ACCEPTED_WORDS_SHA256));
   assert.ok(DICTIONARY_VERSION.includes(TARGET_WORDS_SHA256));
+  assert.ok(DICTIONARY_VERSION.includes(CLASSIFIED_TARGETS_SHA256));
+  assert.ok(DICTIONARY_VERSION.includes(TARGET_SELECTION_POLICY));
+  const source = JSON.parse(await readFile(new URL('../dist/data/target-source.json', import.meta.url), 'utf8'));
+  assert.equal(TARGET_SELECTION_POLICY, source.policy);
+  assert.deepEqual(source.selection, { normal: 0.8, specialized: 0.2, independentPerRound: true, replacement: true });
 });
 
 test('all targets and both arrangements are prepared before any player joins', () => {

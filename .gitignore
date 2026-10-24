@@ -4,6 +4,7 @@ Thumbs.db
 *.log
 .tmp/
 vendor/*.tar.gz
+vendor/esdb/
 .wrangler/
 .dev.vars*
 .env*

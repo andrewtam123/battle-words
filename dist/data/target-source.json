@@ -1,0 +1,217 @@
+{
+  "policy": "regular-inflections-v1",
+  "selection": {
+    "normal": 0.8,
+    "specialized": 0.2,
+    "independentPerRound": true,
+    "replacement": true
+  },
+  "definition": {
+    "normal": "Independent lexical entries, all comparisons, and irregular inflections. A qualifying independent sense or irregular use wins for overlapping spellings.",
+    "specialized": "Only regular inflections, including ordinary spelling adjustments and f/fe/ff-to-ves noun plurals. A regular form of an irregular verb is still regular.",
+    "independentSenseMaximumEsdbSize": 70,
+    "independentSensePolicy": "Separate ESDB headword/lemma entries through size 70 qualify, including adjectives and entries with unknown part of speech. A participle or gerund form alone does not. Explicit reviewed exceptions preserve existing base targets outside this metadata cutoff.",
+    "morphologyPolicy": "Use documented relationships at all ESDB sizes; do not infer base words by stripping endings. Consider complete variant groups and base words outside playable lengths. Pronoun forms using ordinary plural endings are regular; other pronoun forms are irregular."
+  },
+  "vocabulary": {
+    "file": "puzzle-words.json",
+    "sha256": "dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de",
+    "words": 34679,
+    "added": 0,
+    "removed": 0
+  },
+  "source": {
+    "name": "English Speller Database (ESDB)",
+    "url": "https://raw.githubusercontent.com/en-wl/wordlist-diff/7f2f4078354752045ee16a041605686561122185/scowl.txt",
+    "commit": "7f2f4078354752045ee16a041605686561122185",
+    "sourceCommit": "1e5b7d3a72f47a71da5d28686c1dd4b397178485",
+    "sha256": "3ca0f96ef1377a0e2ec4084025933afab8c8d90562257ae73638460f99d2f09c",
+    "licenseUrl": "https://raw.githubusercontent.com/en-wl/wordlist-diff/7f2f4078354752045ee16a041605686561122185/Copyright",
+    "licenseFile": "ESDB-LICENSE.txt",
+    "licenseSha256": "71bffd4b74ad47fff01c8b3c666e77da92737854e568850d8728024e0a53f304",
+    "modifications": "Parsed lexical groups and inflection relationships to classify the unchanged SCOWL 2020.12.07 target inventory. No upstream code executed; no ESDB words added to target or accepted vocabularies."
+  },
+  "overrides": {
+    "file": "scripts/data/target-overrides.json",
+    "sha256": "0ec449e4d54ccc31c4a83b8aa7410a1865a5db5e0e224694ef1d3593e6522448",
+    "entries": {
+      "anybodies": {
+        "category": "specialized",
+        "reason": "Regular plural of anybody; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "anythings": {
+        "category": "specialized",
+        "reason": "Regular plural of anything; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "blamer": {
+        "category": "normal",
+        "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "cellulars": {
+        "category": "specialized",
+        "reason": "Regular plural of cellular; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "chequed": {
+        "category": "specialized",
+        "reason": "Regular past form of cheque, with final e plus d; retained SCOWL regional spelling absent from the pinned ESDB export."
+      },
+      "chequing": {
+        "category": "normal",
+        "reason": "Canadian banking adjective qualifies as an independent meaning; retained SCOWL spelling absent from the pinned ESDB export.",
+        "source": "https://www.collinsdictionary.com/dictionary/english/chequing"
+      },
+      "duellings": {
+        "category": "specialized",
+        "reason": "Regular plural of the noun duelling; retained SCOWL regional spelling absent from the pinned ESDB export."
+      },
+      "flashest": {
+        "category": "normal",
+        "reason": "Superlative of flash; all comparative and superlative forms belong to the normal pool."
+      },
+      "french": {
+        "category": "normal",
+        "reason": "Independent lowercase verb (a food preparation), not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "hims": {
+        "category": "specialized",
+        "reason": "Regular plural of substantivized him; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "liker": {
+        "category": "normal",
+        "reason": "Independent agent noun and comparative form of like. ESDB lists the noun at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "likest": {
+        "category": "normal",
+        "reason": "Superlative of like; all comparative and superlative forms belong to the normal pool."
+      },
+      "looneyies": {
+        "category": "specialized",
+        "reason": "ESDB lists this existing SCOWL target as a variant plural of loony/looney. Treat the anomalous plural spelling as specialized, not an interesting irregular form."
+      },
+      "multi": {
+        "category": "normal",
+        "reason": "Existing standalone target with no inflectional ending; ESDB records multi only as a prefix, which is excluded from automatic independent-sense evidence."
+      },
+      "noes": {
+        "category": "specialized",
+        "reason": "Regular plural of no (negative votes), formed with es; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "nothings": {
+        "category": "specialized",
+        "reason": "Regular plural of nothing; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "percents": {
+        "category": "specialized",
+        "reason": "Regular plural of percent; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "sames": {
+        "category": "specialized",
+        "reason": "Regular plural of substantivized same; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "scotchs": {
+        "category": "specialized",
+        "reason": "Retained SCOWL plural spelling of scotch using s; no independent meaning in the pinned ESDB export."
+      },
+      "shes": {
+        "category": "specialized",
+        "reason": "Regular plural of substantivized she; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "sizer": {
+        "category": "normal",
+        "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "slitter": {
+        "category": "normal",
+        "reason": "Independent agent or tool noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "slummer": {
+        "category": "normal",
+        "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "someones": {
+        "category": "specialized",
+        "reason": "Regular plural of someone; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "somethings": {
+        "category": "specialized",
+        "reason": "Regular plural of something; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "somewhats": {
+        "category": "specialized",
+        "reason": "Regular plural of substantivized somewhat; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "swaggerer": {
+        "category": "normal",
+        "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "wedder": {
+        "category": "normal",
+        "reason": "Independent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "whats": {
+        "category": "specialized",
+        "reason": "Regular plural of substantivized what; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "whiskys": {
+        "category": "specialized",
+        "reason": "Retained SCOWL plural variant of whisky using s; no independent meaning in the pinned ESDB export."
+      },
+      "wizes": {
+        "category": "specialized",
+        "reason": "Regular es plural of wiz; retained SCOWL spelling absent from the pinned ESDB export."
+      },
+      "wounder": {
+        "category": "normal",
+        "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
+      },
+      "yous": {
+        "category": "specialized",
+        "reason": "Regular s plural of you; retained SCOWL spelling absent from the pinned ESDB export."
+      }
+    }
+  },
+  "wordCounts": {
+    "4": {
+      "normal": 1572,
+      "specialized": 350
+    },
+    "5": {
+      "normal": 2227,
+      "specialized": 1341
+    },
+    "6": {
+      "normal": 3199,
+      "specialized": 2269
+    },
+    "7": {
+      "normal": 3564,
+      "specialized": 3352
+    },
+    "8": {
+      "normal": 3428,
+      "specialized": 3326
+    },
+    "9": {
+      "normal": 2900,
+      "specialized": 2814
+    },
+    "10": {
+      "normal": 2020,
+      "specialized": 2317
+    }
+  },
+  "totals": {
+    "normal": 18910,
+    "specialized": 15769
+  },
+  "reasonCounts": {
+    "independent-entry": 16959,
+    "regular-inflection": 15749,
+    "irregular-inflection": 396,
+    "reviewed": 33,
+    "comparison": 1542
+  },
+  "unresolved": 0,
+  "file": "target-pools.json",
+  "sha256": "4de0f47dd08b450262ba32a1e6230e5c85a387acfb97857ce9098eeba88d75f7"
+}

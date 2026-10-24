@@ -16,6 +16,10 @@ The **2026-10-20** battle scoring/results update has **95 passing Node tests** a
 
 The subsequent keyboard-shortcut update has **101 passing Node tests**, including shared key filtering, focus, modifier and repeat guards. Browser checks covered Space shuffle and Ctrl+Backspace clear in live solo and a battle transport fixture, single-use shuffle, pause/dialog guards, pending battle answers, native button activation and player-name editing. Battle service behavior was not changed or revalidated through a live two-client match.
 
+The **2026-10-23** dictionary update deliberately replaces uniform selection across each entire length pool with independent **80% normal / 20% specialized** category draws in both solo and battle, followed by uniform selection within the chosen category. The 34,679 targets and 87,701 accepted answers remain unchanged. Checksum-pinned ESDB grammatical relationships and reviewed exceptions classify the existing targets. See the current policy below; earlier random-stream baselines describe the behavior before this intentional sampling change.
+
+Validation for that update: **142 Node tests passed**, including classification fixtures, full inventory partition checks, category probability/boundary tests, solo/battle draw parity, strict loader rejection and legacy battle-room compatibility. All seven generated data/license files reproduced byte-for-byte, and the Worker deployment dry run passed in WSL using the existing Linux dependencies. Local in-app Chromium checks at `/battle-words/` covered dictionary startup, typed valid answers (including repeated letters), Space shuffle, Help pause/explicit resume, the updated About text/credits, and an intentionally failed classified-dictionary download followed by successful Retry. This was not a new live two-client battle, physical-device test or accessibility audit.
+
 ## Product decisions to preserve
 
 - Exactly **20 rounds**, with lengths defined by `WORD_LENGTHS` in `dist/js/game-core.js` (also reexported by `engine.js`):
@@ -42,12 +46,13 @@ The subsequent keyboard-shortcut update has **101 passing Node tests**, includin
 | `dist/js/battle-client.js`, `battle-ui.js` | Browser transport, local entry validation, credentials, reconnect and battle screens. |
 | `dist/js/battle-feedback.js`, `battle-protocol.js` | Battle outcome feedback and shared protocol/dictionary versions. |
 | `server/`, `wrangler.jsonc` | Cloudflare routing, room auth, WebSockets, persisted state and durable alarms. |
-| `dist/js/word-bank.js` | The single dictionary-loading boundary; fetches and validates both local JSON banks. |
+| `dist/js/word-bank.js` | The single dictionary-loading boundary; fetches and validates classified targets and accepted answers. |
 | `dist/index.html` | Static screens, instructions, metadata, accessible labels, credits and asset links. |
 | `dist/styles.css` | Responsive layout, tile/answer sizing, focus, colors and reduced-motion behavior. |
 | `dist/manifest.webmanifest`, `dist/assets/` | Home-screen metadata and SVG/PNG branding. |
-| `dist/data/` | Generated target/accepted dictionaries, provenance and full upstream license notices. |
-| `scripts/prepare-words.mjs` | Reproducible SCOWL extraction. |
+| `dist/data/` | Generated target inventory, classified target pools, accepted dictionary, provenance and full SCOWL/ESDB license notices. |
+| `scripts/prepare-words.mjs`, `scripts/lib/` | Reproducible SCOWL extraction and ESDB-based target classification. |
+| `scripts/data/target-overrides.json` | Explicit reviewed classifications with reasons; unresolved source entries must not silently fall into a category. |
 | `scripts/serve.mjs` | Local static preview server; not a production backend. |
 | `tests/` | Built-in Node tests for rules, dictionary integrity and loading. |
 | `.github/workflows/pages.yml` | Test and publish the contents of `dist/` to GitHub Pages. |
@@ -58,9 +63,9 @@ Keep reusable puzzle rules in the shared core, mode-specific progression in the 
 
 ### Random selection
 
-`beginGame()` passes `Date.now()` to `GameEngine.start()`. The entire timestamp string is hashed into a deterministic, non-cryptographic xoshiro128** generator. **All 20 target words are drawn before any tile scrambling consumes random numbers.** For each required length, draw uniformly from that length's deduplicated target array, independently **with replacement**. `randomIndex()` uses rejection sampling to avoid modulo bias.
+`beginGame()` passes `Date.now()` to `GameEngine.start()`. The entire timestamp string is hashed into a deterministic, non-cryptographic xoshiro128** generator. **All 20 target words are drawn before any tile scrambling consumes random numbers.** Each round independently chooses normal with **80% probability** or specialized with **20% probability**, then draws uniformly from that category's deduplicated target array for the required length, **with replacement**. The 80:20 ratio is an expectation, not a quota of exactly 16 and 4 words per game. Both category and word selection use rejection sampling to avoid modulo bias.
 
-Do not add a queue, anagram-group sampling, frequency weighting, duplicate prevention, or repeat history. Repeated words/groups are allowed. The same seed and ordered pools give the same target sequence. Player shuffles consume the remaining RNG stream and can affect later tile arrangements, but cannot change the already selected words.
+Do not add a queue, anagram-group sampling, word-frequency weighting, duplicate prevention, or repeat history. Repeated words/groups are allowed. The same seed, selection policy and ordered pools give the same target sequence. Player shuffles consume the remaining RNG stream and can affect later tile arrangements, but cannot change the already selected words.
 
 ### Tiles and answers
 
@@ -86,11 +91,11 @@ Round-dependent labels in `app.js` mostly use `WORD_LENGTHS.length`, but HTML co
 
 The requested builder appends ordered groups of **word length + predefined dictionary + number of words** until the player is satisfied. Builds must be locally saveable and portable through export/import links. Share the reusable recipe, not a fixed seed or sampled answers; every solo play continues to draw fresh words. Default Easy/Medium/Hard builds use the exact 20-word progression above and their corresponding dictionaries. A battle invite is separate from a future recipe link and joins a match with one shared word sequence.
 
-Implementation will need an explicit, immutable per-round plan in place of global `WORD_LENGTHS` for arbitrary games, dictionary resolution for each round, and dynamic progress/scoring/final-round UI. Draw all configured targets before scrambling, retaining uniform independent sampling with replacement. Bind accepted answers to the chosen dictionary policy per round; share a broad bank across compatible profiles rather than accidentally unioning unrelated sources. Keep catalog, build validation, local storage and link encoding outside the engine. The full plan and acceptance checks are in `NEXT_STEPS.md`; none of this is implemented in the current source.
+Implementation will need an explicit, immutable per-round plan in place of global `WORD_LENGTHS` for arbitrary games, dictionary resolution for each round, and dynamic progress/scoring/final-round UI. Draw all configured targets before scrambling, retaining independent 80:20 category draws and uniform sampling within each selected category with replacement. Bind accepted answers to the chosen dictionary policy per round; share a broad bank across compatible profiles rather than accidentally unioning unrelated sources. Keep catalog, build validation, local storage and link encoding outside the engine. The full plan and acceptance checks are in `NEXT_STEPS.md`; none of this is implemented in the current source.
 
 ### Implemented battle mode
 
-Battle currently uses exactly the existing 20 rounds and dictionary. Custom builds remain future work. Its pure rules live separately from GameEngine; keep solo behavior unchanged. All targets are sampled before all initial/shuffle arrangements are prepared, once on the authority. Do not expose future targets, seed, credentials or provisional opponent claims in browser snapshots.
+Battle currently uses exactly the existing 20 rounds and dictionary, including the same independent 80:20 category policy as solo. Custom builds remain future work. Its pure rules live separately from GameEngine; keep solo behavior unchanged. All targets are sampled before all initial/shuffle arrangements are prepared, once on the authority. Do not expose future targets, seed, credentials or provisional opponent claims in browser snapshots.
 
 Both reserved players ready once, followed by a three-second countdown. Shared rounds have strict 30-second deadlines. The first valid authority receipt opens a 200 ms window; the other player's valid receipt must be strictly less than 200 ms later and strictly before the round deadline to tie. Exact deadline or exact 200 ms separation loses. A win awards one point; a tie awards 0.5 to each player; neither solving awards zero. Do not show a provisional winner to either client. All rounds reveal a full answer for two seconds. The highest score after 20 rounds wins; equal scores draw. Derive scores from round outcomes so existing matches and historical results, including cached result responses, also use half-points for ties.
 
@@ -112,25 +117,27 @@ Graceful handling of Cloudflare usage limits is a TODO in [NEXT_STEPS.md](NEXT_S
 
 ## Vocabulary and licensing
 
-The following describes the current shipped dictionary, not a permanent restriction to SCOWL. The engine already accepts replacement pools, but the loader filenames, generator, UI credits and tests are still source-specific. The catalog/custom-build roadmap will address those couplings; neither feature is implemented yet. Catalog entries define target-pool breadth separately from accepted answers, and the builder chooses a dictionary per group. Uniform selection within each eligible pool remains required.
+The following describes the current shipped dictionary, not a permanent restriction to SCOWL. The engine already accepts replacement pools, but the loader filenames, generator, UI credits and tests are still source-specific. The catalog/custom-build roadmap will address those couplings; neither feature is implemented yet. Catalog entries define target-pool breadth separately from accepted answers, and the builder chooses a dictionary per group. Preserve the 80:20 category policy and uniform selection within each selected category.
 
 - Source is checksum-pinned **SCOWL 2020.12.07**. Targets: **34,679** words from cumulative levels **10, 20 and 35**. Accepted answers: **87,701** words through level **70**. A raw SCOWL level-35 source file does not include lower tiers by itself.
 - Both banks have separate pools for lengths **4 through 10**. Include normal `words` categories for English, American, British (`-ise` and `-ize`), Canadian, and the generator's listed variant levels 1-2. Preserve inflections and regional spellings.
-- The filter is exactly lowercase ASCII `^[a-z]{4,10}$`, applied before any case conversion; there is no accent normalization or manual/frequency/content curation. Name/upper/abbreviation/contraction/special categories and variant_3 files are excluded. SCOWL 35 reduces obscurity, but does not guarantee familiar targets.
-- `puzzle-words.json` controls what is drawn; `words.json` controls alternative-answer acceptance. Do not substitute the broad bank if targets fail to load. The loader validates all required pools and target inclusion in accepted answers before enabling Start.
-- Per-length counts, source files and hashes are in `dist/data/word-source.json` and checked by `tests/data.test.js`. Original 4-8-letter subsets are also pinned by tests. Update expectations only for intentional, reviewed data-policy changes.
-- Preserve the generator's LF line endings, including the final newline in both dictionary JSON files: their hashes cover exact bytes. Windows Git's automatic CRLF conversion can cause checksum failures after checkout. Check line endings before changing expected hashes; do not silently change machine-wide Git settings.
-- Change the generator rather than hand-editing generated JSON. It rebuilds both banks, metadata and `SCOWL-LICENSE.txt` together. Preserve the complete upstream notices and the statement that the data was extracted/filtered. No standalone license for the game code has been selected in this repository; do not treat the dictionary license as a license for all project code.
+- The filter is exactly lowercase ASCII `^[a-z]{4,10}$`, applied before any case conversion; there is no accent normalization or manual/frequency/content exclusion of words. Name/upper/abbreviation/contraction/special categories and variant_3 files are excluded. SCOWL 35 reduces obscurity, but does not guarantee familiar targets.
+- `puzzle-words.json` preserves the full target inventory. The runtime loads its disjoint normal/specialized partition from `target-pools.json`; `words.json` controls alternative-answer acceptance. Do not substitute the broad bank or an unclassified pool if classified targets fail to load. The loader validates sorted, unique, nonempty categories for every required length, disjointness and inclusion in accepted answers before enabling Start.
+- **Normal:** qualifying independent lexical entries (including adjectives), all comparative/superlative forms, and irregular inflections. **Specialized:** regular plural/verb forms without a qualifying normal use, including ordinary spelling changes and `f/fe/ff → ves` plurals such as knives/leaves/wolves. Classify individual forms rather than entire word families; takes remains regular even though took is irregular. An independent meaning or irregular use takes priority when spellings overlap; a gerund/participle label alone does not.
+- Classification uses the checksum-pinned ESDB export commit `7f2f4078354752045ee16a041605686561122185` and source commit recorded in `target-source.json`. Separate headword/lemma entries through ESDB size 70 qualify as independent meanings, including adjectives and untagged entries; prefixes/suffixes do not. Inflection relationships at all source sizes establish forms, including bases outside playable lengths and spelling variants. Reviewed exceptions preserve existing independent targets beyond that metadata cutoff or resolve missing/conflicting entries. ESDB adds no new vocabulary and is a generation-time data source only.
+- Per-length counts, source files and hashes are in `dist/data/word-source.json`; category counts, the classification policy, ESDB provenance and reviewed exceptions are in `dist/data/target-source.json`. `scripts/data/target-overrides.json` records explicit decisions with reasons, and unknown classifications stop generation for review. Original 4-8-letter subsets are also pinned by tests. Update expectations only for intentional, reviewed data-policy changes.
+- Preserve the generator's LF line endings, including final newlines in generated JSON: hashes cover exact bytes. Repository `.gitattributes` pins data JSON, license notices and reviewed-override JSON to LF. Check line endings before changing expected hashes; do not silently change machine-wide Git settings.
+- Change the generator or reviewed classification decisions rather than hand-editing generated JSON. It rebuilds both banks, classified pools, provenance and `SCOWL-LICENSE.txt` / `ESDB-LICENSE.txt` together. Preserve complete upstream notices and statements describing modifications. No standalone license for the game code has been selected in this repository; do not treat the dictionary licenses as licenses for all project code.
 
 Rebuild only when data work calls for it:
 
 ```sh
 node scripts/prepare-words.mjs
-# Or use an existing checksum-matching archive without downloading:
-node scripts/prepare-words.mjs --archive /path/to/scowl-2020.12.07.tar.gz
+# Or use existing checksum-matching inputs without downloading:
+node scripts/prepare-words.mjs --archive /path/to/scowl-2020.12.07.tar.gz --lexicon-dir /path/to/esdb
 ```
 
-The normal command caches the archive in `vendor/`; `.gitignore` excludes that archive. The pinned tar is parsed in memory, and upstream scripts are never executed. The cache is unnecessary for playing, serving or testing the committed app.
+The ESDB directory must contain pinned `scowl.txt` and `Copyright` files. Each option can be supplied separately. The normal command caches the SCOWL archive in `vendor/` and ESDB inputs in `vendor/esdb/<pinned-export-commit>/`; `.gitignore` excludes these caches. The pinned tar is parsed in memory, and upstream scripts are never executed. The caches are unnecessary for playing, serving or testing the committed app.
 
 ## Run and validate
 

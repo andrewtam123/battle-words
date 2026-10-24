@@ -10,7 +10,7 @@
 
 These are future implementation tasks. **Custom builds replace the earlier standalone Easy / Medium / Hard mode proposal.** Easy, Medium and Hard become default builds using the same builder/playback system. Dictionary configuration remains a supporting task, and offline caching remains planned.
 
-The current game still uses one SCOWL target bank through level 35, an accepted-answer bank through level 70, and the fixed 20-round progression. There is no builder, saved-build library or recipe share/import feature yet. Battle uses the existing fixed game. Exact dictionary cutoffs/sizes and build-size limits remain to be decided.
+The current game uses the unchanged SCOWL target vocabulary through level 35, partitioned into normal and specialized pools using pinned ESDB grammatical information and reviewed exceptions. Both modes independently choose normal with 80% probability or specialized with 20% each round, then draw uniformly within that category and length, with replacement. The accepted-answer bank through level 70 and fixed 20-round progression are unchanged. There is no builder, saved-build library or recipe share/import feature yet. Battle uses the existing fixed game. Exact future dictionary cutoffs/sizes and build-size limits remain to be decided.
 
 ## 1. Offline caching
 
@@ -27,7 +27,7 @@ Offline caching stores application files and word banks. It must **not** add gam
 ### Current code to build on
 
 - `dist/index.html` references local CSS, modules, icons and a manifest using relative paths.
-- `dist/js/word-bank.js` fetches `puzzle-words.json` and `words.json` using module-relative URLs, validates both, and returns in-memory data to the engine.
+- `dist/js/word-bank.js` fetches `target-pools.json` and `words.json` using module-relative URLs, validates both, and returns in-memory data to the engine. The classified target pools contain disjoint normal and specialized arrays for each length.
 - `dist/js/app.js` owns loading/retry feedback and constructs the engine after the banks load. Once loaded, the game needs no additional gameplay requests.
 - `dist/js/engine.js` has no browser/network/storage dependency and should not need offline-specific changes.
 - The manifest already uses `./` for `id`, `start_url` and `scope`. The workflow deploys `dist/` unchanged. A service worker can be added without a backend or bundler.
@@ -45,9 +45,9 @@ Use HTTPS in production; localhost is suitable for development. Keep the registr
 Maintain an explicit resource inventory and release version. Precache:
 
 - The application entry (`index.html`), `styles.css`, every runtime JS module imported by the app (including the shared core/view and battle modules), and any added offline module. Caching the static battle modules lets Solo load offline; it does not make the battle service available offline.
-- **Both** `data/puzzle-words.json` and `data/words.json` as part of the same release.
+- **Both runtime banks**, `data/target-pools.json` and `data/words.json`, as part of the same release.
 - `manifest.webmanifest` and the SVG plus 180/192/512 PNG icons.
-- `data/SCOWL-LICENSE.txt` and `data/word-source.json`, keeping credits/provenance available offline.
+- `data/SCOWL-LICENSE.txt`, `data/ESDB-LICENSE.txt`, `data/word-source.json`, `data/target-source.json` and the referenced inventory `data/puzzle-words.json`, keeping credits/provenance available offline.
 
 Do not cache the repository, tests, source archive, README, or remote attribution websites. The worker script itself follows the browser's service-worker update mechanism.
 
@@ -90,24 +90,24 @@ Document the browsers tested and any platform limits. Update `AGENTS.md` and the
 
 The engine is already dictionary-independent: `GameEngine` receives `pools` and `acceptedWords` rather than reading SCOWL files itself. A compatible replacement can work without changing its rules. End-to-end substitution is not yet a simple configuration change:
 
-- `dist/js/word-bank.js` always loads `puzzle-words.json` and `words.json`.
-- `scripts/prepare-words.mjs` is tied to a particular SCOWL archive, categories, size levels and source-file counts, including a fixed minimum of 1,000 words per length.
-- `dist/js/app.js` hard-codes SCOWL's name, version, levels and spelling coverage in the credits; `dist/index.html` fixes the SCOWL license link and initial source label.
+- `dist/js/word-bank.js` always loads `target-pools.json` and `words.json`, requiring both target categories for every supported length.
+- `scripts/prepare-words.mjs` is tied to a particular SCOWL archive, categories, size levels and source-file counts, including a fixed minimum of 1,000 inventory words per length. Its classification helpers also pin ESDB inputs and the independent-meaning/regular-inflection policy.
+- `dist/js/app.js` hard-codes SCOWL's name, version, levels and spelling coverage plus the ESDB credit; `dist/index.html` fixes the SCOWL and ESDB license links and initial source label.
 - Data and loader tests contain SCOWL-specific counts, hashes and example words. These are useful integrity checks, but are not a reusable validation contract for other sources.
 
 ### Proposed implementation
 
-1. Define a predefined catalog of bundled dictionary profiles: stable/versioned ID, display name, supported lengths, target and accepted-answer asset paths, source/version, filtering policy, per-length counts, and license/provenance references. The builder selects from this catalog; a build cannot supply arbitrary dictionary URLs or upload a word list. Keep asset paths relative to the hosted app.
+1. Define a predefined catalog of bundled dictionary profiles: stable/versioned ID, display name, supported lengths, classified target and accepted-answer asset paths, source/version, filtering/classification policy, per-length/category counts, and license/provenance references. The builder selects from this catalog; a build cannot supply arbitrary dictionary URLs or upload a word list. Keep asset paths relative to the hosted app.
 2. Parameterize `loadWordBank()` with that profile and return source/display metadata alongside the existing engine inputs. Render accurate credits and license links from metadata. Selecting a prepared profile should not require edits to engine logic, loader internals or presentation strings.
-3. Define a common output contract: sorted, deduplicated lowercase ASCII word arrays keyed by supported length. The current app/catalog supports lengths 4 through 10; expose only lengths actually available for the selected dictionary. Require every declared pool to be nonempty, reject malformed words, and require every target to belong to the configured accepted-answer vocabulary. The default Easy/Medium/Hard dictionaries must cover all seven lengths. Sorting preserves reproducibility; deduplication preserves uniform word sampling. Additional lengths or alphabets require deliberate validation/layout work rather than being silently accepted by imports.
-4. Retain the pinned SCOWL importer as one source adapter. Let additional source adapters or an import command convert prepared local word lists to the common format, with their own attribution and redistribution terms. Make source-specific cutoffs and minimum-size sanity checks configurable; do not impose SCOWL's 1,000-word-per-length guard on every smaller valid profile. Preserve deterministic metadata/hashes and license notices.
+3. Define a common output contract: sorted, deduplicated lowercase ASCII word arrays keyed by supported length and target category. Preserve disjoint normal/specialized target categories and the independent 80:20 sampling policy; accepted answers remain separate. The current app/catalog supports lengths 4 through 10; expose only lengths actually available for the selected dictionary. Require both target categories at every declared length to be nonempty, reject malformed words, and require every target to belong to the configured accepted-answer vocabulary. The default Easy/Medium/Hard dictionaries must cover all seven lengths. Sorting preserves reproducibility; deduplication preserves uniform sampling within categories. Additional lengths or alphabets require deliberate validation/layout work rather than being silently accepted by imports.
+4. Retain the pinned SCOWL importer and ESDB classification as one source adapter. Let additional source adapters or an import command convert and classify prepared local word lists into the common format, with their own attribution and redistribution terms. Make source-specific cutoffs and minimum-size sanity checks configurable; do not impose SCOWL's 1,000-word-per-length inventory guard on every smaller valid profile. Preserve deterministic metadata/hashes and license notices.
 5. Separate generic loader/contract tests using small fixtures from integrity tests for shipped providers. Retain SCOWL's pinned counts/hashes for the SCOWL profile, and add corresponding checks for each new bundled source. Keep target selection separate from accepted-answer validation.
 6. Document adding/replacing a prepared dictionary in the catalog. Importing dictionary data remains a maintainer workflow; players select predefined catalog entries while building games. No plugin framework, runtime dictionary-download service or player-uploaded vocabulary is required. Keep referenced dictionary IDs/versions stable, or provide explicit migrations, so saved/shared builds do not silently resolve to different vocabulary.
 
 ### Acceptance checks
 
 - Swap between the current SCOWL profile and a small independent fixture profile through configuration alone. Confirm the engine, all 20 rounds, alternative answers, displayed counts, credits and license links remain correct.
-- Reject missing declared/required lengths, duplicate/invalid entries and targets absent from accepted answers with actionable errors. Never fall back silently to another source or the broader accepted pool for target selection.
+- Reject missing declared/required lengths or categories, overlapping target categories, duplicate/invalid entries and targets absent from accepted answers with actionable errors. Never fall back silently to another source, an unclassified target inventory or the broader accepted pool for target selection.
 - Confirm identical source inputs produce identical ordered pools, metadata and checksums. Keep source-specific integrity checks meaningful.
 - Verify root/subpath hosting and ensure the offline resource inventory follows the selected/bundled profiles when caching is implemented.
 
@@ -134,7 +134,7 @@ Easy/Medium/Hard dictionaries should have progressively broader target vocabular
 1. Define a versioned build schema with an optional display name and an ordered list of groups containing `{length, dictionaryId, count}`. Dictionary IDs identify catalog entries with a stable version policy. Keep the portable recipe separate from browser-local save IDs or timestamps. Derive the total number of rounds from the groups.
 2. Validate the complete recipe before saving, importing, expanding or starting it: supported schema version, at least one group, known dictionaries, supported/nonempty length pools, positive integer counts, and explicit limits on groups, total rounds, names and encoded link size. Decide practical limits during implementation; custom games must not be hard-coded to 20 rounds. Count totals before allocating an expanded round list. Explain unsupported or unavailable dictionaries instead of silently substituting them.
 3. Resolve required dictionary assets once and expand the groups into an immutable per-round plan. Every round binds its length, target pool and accepted-answer policy. Prefer a shared broad accepted dictionary for compatible Easy/Medium/Hard profiles; for other catalog entries use the active round's configured accepted bank. Do not implicitly union unrelated dictionaries or narrow acceptance simply because the target dictionary is easier.
-4. Refactor `engine.js` to take a round plan instead of using global `WORD_LENGTHS` for every game. Preserve the existing progression as a default-build constant. Draw all of the build's words upfront, using one `Date.now()` seed and uniform per-length/per-dictionary sampling with replacement, before scrambling consumes randomness. Freeze the active recipe/pools so editing a saved build cannot change a running game.
+4. Refactor `engine.js` to take a round plan instead of using global `WORD_LENGTHS` for every game. Preserve the existing progression as a default-build constant. Draw all of the build's words upfront, using one `Date.now()` seed, independent 80:20 category choices and uniform sampling within the selected category/length/dictionary with replacement, before scrambling consumes randomness. Freeze the active recipe/pools so editing a saved build cannot change a running game.
 5. Make UI progress, current length, final-round detection, result count, perfect-score logic and score denominator derive from the active plan. Audit static HTML instructions and the fixed results-heading threshold as well as `app.js`'s `WORD_LENGTHS` references. Keep branding as **Battle Words**, and clearly label custom builds with their actual totals. Preserve 30 seconds per word, existing tile-removal behavior, once-per-round shuffle through its button or unmodified Space, Ctrl+Backspace clearing, pause and results review.
 6. Keep builder/storage/link handling outside the pure engine. Load and validate all required banks before starting the timer, and guard asynchronous build/dictionary changes against stale responses. Test rendering beyond 20 rounds at mobile sizes rather than assuming the current 20-cell layout is sufficient.
 
@@ -190,6 +190,6 @@ Before implementing, decide the player-facing message and available actions, ret
 
 ## Coordination between these tasks
 
-The dictionary catalog is the foundation for custom builds and their Easy/Medium/Hard defaults. Offline caching can be implemented independently against current assets, but its resource inventory and readiness checks must include the catalog and builder when they ship. Saved recipes are separate from cached application files and the server-persisted battle state and results. Keep current gameplay and SCOWL banks unchanged during planning; the custom-build implementation will deliberately generalize fixed lengths/counts while preserving the original progression in default recipes.
+The dictionary catalog is the foundation for custom builds and their Easy/Medium/Hard defaults. Offline caching can be implemented independently against current assets, but its resource inventory and readiness checks must include the catalog and builder when they ship. Saved recipes are separate from cached application files and the server-persisted battle state and results. Keep current gameplay, SCOWL vocabulary and the 80:20 selection policy unchanged during planning; the custom-build implementation will deliberately generalize fixed lengths/counts while preserving the original progression in default recipes.
 
 Offline caching, dictionary configuration and custom builds can remain entirely static. Battle mode adds live network communication and shared match state; keep that dependency separate so solo play does not depend on the battle service. The frontend can remain on GitHub Pages.

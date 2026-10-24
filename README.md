@@ -36,13 +36,13 @@ For local battles, run `npm ci` once, then `npm run battle:dev` in another termi
 - Shuffle is available once per round through its button or Space alone. There is no Shift shortcut. It rearranges the same letters and does not reset the clock.
 - Pause freezes the timer and hides the puzzle. Backgrounding the page also pauses it; return and press Resume. The final screen shows the score and answers for the current game.
 
-Each new game seeds one deterministic **xoshiro128\*\*** generator with `Date.now()` (milliseconds since the Unix epoch). It chooses all 20 target words before consuming randomness to scramble tiles. Each target is drawn independently and uniformly from the deduplicated **SCOWL level 35 and below** puzzle pool of the required length. The index selection uses rejection sampling to avoid modulo bias. Draws are **with replacement**, so a word or anagram group may repeat within or across games. There is no group sampling, frequency weighting, queue, or repeat history. The same seed and vocabulary produce the same selected words.
+Each new game seeds one deterministic **xoshiro128\*\*** generator with `Date.now()` (milliseconds since the Unix epoch). It chooses all 20 target words before consuming randomness to scramble tiles. For each round, it independently chooses the **normal pool with 80% probability** or the **specialized pool with 20% probability**, then draws uniformly from that category's deduplicated **SCOWL level 35 and below** targets of the required length. This averages 16 normal and 4 specialized targets per game; individual games can vary. Both category and word selection use rejection sampling to avoid modulo bias. Draws are **with replacement**, so a word or anagram group may repeat within or across games. There is no group sampling, frequency weighting, queue, or repeat history. The same seed, selection policy and ordered pools produce the same selected words.
 
 Any word in the accepted vocabulary made from exactly the available letters counts, including alternative anagrams. The selected target remains the answer revealed after a timeout.
 
 ## Battle rules
 
-Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. All targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player. The same controls apply as in solo: Space shuffles; Cmd+Backspace on Mac or Ctrl+Backspace elsewhere clears, with both buttons still available.
+Create a room, enter a display name and share its link. Exactly two seats are reserved; names can repeat. Both players ready before a three-second countdown. They receive the same words and initial tiles. The authority uses the same independent 80:20 target selection as solo; all targets and permitted shuffle arrangements are prepared before play. A player can shuffle once per round independently of the other player. The same controls apply as in solo: Space shuffles; Cmd+Backspace on Mac or Ctrl+Backspace elsewhere clears, with both buttons still available.
 
 The authority's first valid receipt wins, unless the other player's valid answer arrives **strictly less than 200 ms later**, in which case the round ties. A win earns **1 point**; a tie earns **0.5 points for each player**; neither solving earns zero. Both answers in a tie must arrive **before** the shared 30-second deadline. No provisional winner is shown to either player. Invalid answers get immediate local feedback; the server still verifies submitted claims. A valid entry stays filled until the result: green for a win, grey for a tie or shared miss, or red with “Almost!” for a correct answer that lost. A shared miss has a grey progress cell with a small centered dash (`–`), distinct from a tie's equals sign and a personal loss's red cross.
 
@@ -75,23 +75,36 @@ The workflow tests the project, validates the backend bundle, optionally inserts
 
 ## Word bank and credits
 
-The bundled vocabulary comes from the official **SCOWL 2020.12.07** release. Puzzle targets use **34,679** unique lowercase words from levels **35 and below** in [`dist/data/puzzle-words.json`](dist/data/puzzle-words.json). Accepted answers retain the broader **87,701** words from levels **70 and below** in [`dist/data/words.json`](dist/data/words.json), so a less-common alternative anagram can still count:
+The bundled vocabulary comes from the official **SCOWL 2020.12.07** release. Puzzle targets retain **34,679** unique lowercase words from levels **35 and below** in [`dist/data/puzzle-words.json`](dist/data/puzzle-words.json). The game loads their normal/specialized partition from [`dist/data/target-pools.json`](dist/data/target-pools.json). Accepted answers retain the broader **87,701** words from levels **70 and below** in [`dist/data/words.json`](dist/data/words.json), so a less-common alternative anagram can still count:
 
-| Letters | Puzzle targets (≤35) | Accepted answers (≤70) |
-|---|---:|---:|
-| 4 | 1,922 | 3,256 |
-| 5 | 3,568 | 6,676 |
-| 6 | 5,468 | 11,176 |
-| 7 | 6,916 | 15,940 |
-| 8 | 6,754 | 18,049 |
-| 9 | 5,714 | 17,596 |
-| 10 | 4,337 | 15,008 |
+| Letters | Normal targets | Specialized targets | Total targets (≤35) | Accepted answers (≤70) |
+|---|---:|---:|---:|---:|
+| 4 | 1,572 | 350 | 1,922 | 3,256 |
+| 5 | 2,227 | 1,341 | 3,568 | 6,676 |
+| 6 | 3,199 | 2,269 | 5,468 | 11,176 |
+| 7 | 3,564 | 3,352 | 6,916 | 15,940 |
+| 8 | 3,428 | 3,326 | 6,754 | 18,049 |
+| 9 | 2,900 | 2,814 | 5,714 | 17,596 |
+| 10 | 2,020 | 2,317 | 4,337 | 15,008 |
+| **Total** | **18,910** | **15,769** | **34,679** | **87,701** |
 
 SCOWL's numbered source files contain additions at each level. A raw level-35 file therefore does **not** contain all lower-level words on its own; the assembled size-35 dictionary combines levels **10, 20, and 35**. Our target pool includes all three levels. SCOWL levels describe dictionary coverage, so the cutoff reduces obscure targets without guaranteeing every remaining word is familiar.
 
-Both extractions include SCOWL's normal `words` categories, covering English, American, British (`-ise` and `-ize`), Canadian, and accepted variant levels 1–2 within the respective size cutoff. They preserve plurals and inflections. They reject uppercase entries, non-ASCII letters, punctuation, and lengths outside 4–10. Proper-name, abbreviation, contraction, upper-case, and special source categories are excluded. There is no additional frequency, familiarity, or manual curation. The original 4–8-letter pools are unchanged; 9- and 10-letter pools use the same extraction rules.
+Both extractions include SCOWL's normal `words` categories, covering English, American, British (`-ise` and `-ize`), Canadian, and accepted variant levels 1–2 within the respective size cutoff. They preserve plurals and inflections. They reject uppercase entries, non-ASCII letters, punctuation, and lengths outside 4–10. Proper-name, abbreviation, contraction, upper-case, and special source categories are excluded. There are no additional frequency, familiarity, or manual word exclusions. The original 4–8-letter vocabulary is unchanged; 9- and 10-letter pools use the same extraction rules.
+
+Target categories change selection probabilities, not the vocabulary or alternative-answer rules:
+
+- **Normal:** independent words and meanings, including established nouns/adjectives such as *acting*, *building*, *boring* and *learned*; all comparatives/superlatives; and irregular inflections such as *took*, *taken*, *mice* and *children*.
+- **Specialized:** regular plurals and verb forms without a qualifying independent meaning, such as *walked*, *babies* and *paintings*, plus `f/fe/ff → ves` plurals such as *knives*, *leaves* and *wolves*.
+- Classify each spelling across its uses. A qualifying independent meaning or irregular use puts it in normal; an irregular verb does not make its regular forms normal (*took* is normal, *takes* specialized). A gerund/participle label alone is insufficient. An ordinary plural of an independent noun is still specialized unless that plural has its own qualifying use.
+
+Regular formation includes consonant doubling, dropping final `e`, and `y → i` / `ie → y` spelling adjustments. Separate meanings still take priority: *studied*, *stopped*, *making* and *dying* have qualifying independent entries in the pinned source and therefore belong in normal despite their regular verb uses.
+
+Classification uses a checksum-pinned **English Speller Database (ESDB)** export, with lexical entries through size 70 as evidence of independent meanings and its documented inflection relationships at all sizes. Separate adjective and untagged headword entries qualify; prefixes and suffixes do not. This is a reproducible lexical policy, not a claim that the source captures every possible meaning. Explicit reviewed exceptions are recorded in [`scripts/data/target-overrides.json`](scripts/data/target-overrides.json); unresolved words stop generation for review. ESDB enriches classification only: it adds no target or accepted words and is not a runtime service or dependency.
 
 Source version, exact input files, filters, counts, and SHA-256 checksums are recorded in [`dist/data/word-source.json`](dist/data/word-source.json). The complete upstream notices are retained in [`dist/data/SCOWL-LICENSE.txt`](dist/data/SCOWL-LICENSE.txt); distribute them with the word bank. This game's data is an extracted, filtered copy, not an unmodified SCOWL release.
+
+The category policy, per-length counts, reviewed exceptions and pinned ESDB provenance are recorded in [`dist/data/target-source.json`](dist/data/target-source.json). Its export commit is `7f2f4078354752045ee16a041605686561122185` from [the upstream wordlist export repository](https://github.com/en-wl/wordlist-diff/tree/7f2f4078354752045ee16a041605686561122185). The complete additional upstream notices are retained in [`dist/data/ESDB-LICENSE.txt`](dist/data/ESDB-LICENSE.txt) and must also accompany the classified data.
 
 Rebuild the data with:
 
@@ -99,13 +112,13 @@ Rebuild the data with:
 node scripts/prepare-words.mjs
 ```
 
-The first run downloads the pinned official data archive and verifies its checksum before reading it. Later runs use the cached archive in `vendor/`. No upstream scripts are executed. To use an existing archive without downloading:
+The first run downloads the pinned official SCOWL archive plus ESDB's `scowl.txt` and `Copyright`, and verifies all checksums before using them. Later runs use the SCOWL archive in `vendor/` and the ESDB files in `vendor/esdb/<pinned-export-commit>/`. No upstream scripts are executed. To rebuild without downloads using existing checksum-matching inputs:
 
 ```sh
-node scripts/prepare-words.mjs --archive /path/to/scowl-2020.12.07.tar.gz
+node scripts/prepare-words.mjs --archive /path/to/scowl-2020.12.07.tar.gz --lexicon-dir /path/to/esdb
 ```
 
-The archive SHA-256 is `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`. Generated data and metadata are deterministic. The archive cache is not needed to play, host, or test the game.
+The ESDB directory must contain both pinned `scowl.txt` and `Copyright` files. Either option can be supplied independently, using the default cache/download behavior for the other input. The SCOWL archive SHA-256 is `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc`; ESDB checksums are in `target-source.json`. Generated data and metadata are deterministic. The caches are not needed to play, host, or test the committed game.
 
 ## Structure and future changes
 
@@ -119,9 +132,9 @@ The archive SHA-256 is `5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba2
 - `dist/js/battle-feedback.js`: battle-specific outcome feedback.
 - `dist/js/battle-protocol.js` and `battle-config.js`: shared version contract and public service URL.
 - `server/`: Cloudflare Worker routing, room authentication, WebSockets and durable storage/alarms; `wrangler.jsonc`: backend deployment configuration.
-- `dist/js/word-bank.js`: one place for loading and validating the bundled vocabularies. Level-35 puzzle pools and level-70 accepted answers are passed separately to the engine, allowing further target pruning while preserving legitimate alternative answers.
+- `dist/js/word-bank.js`: one place for loading and validating the bundled vocabularies. Classified level-35 target pools and level-70 accepted answers are passed separately to the engine, preserving legitimate alternative answers.
 - `dist/data/`: target and accepted-answer word banks, provenance, and licensing; `dist/styles.css` and `dist/assets/` contain presentation resources.
-- `scripts/`: local server and reproducible word-data preparation; `tests/`: engine and data checks.
+- `scripts/`: local server and reproducible word-data preparation, including lexical classification under `scripts/lib/` and reviewed decisions under `scripts/data/`; `tests/`: engine and data checks.
 
 Offline support can later add a service worker that caches these same-origin static resources, including the dictionary, without changing the engine. Cache versions, download-completion feedback, and update behavior would belong to that future feature. No service-worker stub is installed now.
 

@@ -36,7 +36,12 @@ export class GameEngine {
     invalidEntry: '',
   };
 
-  constructor({ pools, acceptedWords = Object.values(pools).flat(), now = () => performance.now() }) {
+  constructor({
+    pools,
+    acceptedWords = Object.values(pools).flatMap(pool => Array.isArray(pool)
+      ? pool : [...(pool?.normal ?? []), ...(pool?.specialized ?? [])]),
+    now = () => performance.now(),
+  }) {
     this.#pools = pools;
     this.#accepted = new Set(Array.from(acceptedWords, (word) => word.toLowerCase()));
     this.#now = now;

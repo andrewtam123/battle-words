@@ -1,0 +1,4 @@
+# These exact bytes are pinned by provenance and dictionary protocol checksums.
+dist/data/*.json text eol=lf
+dist/data/*LICENSE.txt text eol=lf
+scripts/data/*.json text eol=lf

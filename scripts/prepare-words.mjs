@@ -14,6 +14,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
+import { prepareClassifiedTargets } from './lib/prepare-targets.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = '2020.12.07';
@@ -31,15 +32,19 @@ const MAX_PUZZLE_SIZE = 35;
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 const args = process.argv.slice(2);
-if (args.length !== 0 && (args.length !== 2 || args[0] !== '--archive')) {
-  throw new Error('Usage: node scripts/prepare-words.mjs [--archive path]');
+const options = new Map();
+for (let i = 0; i < args.length; i += 2) {
+  if (!['--archive', '--lexicon-dir'].includes(args[i]) || !args[i + 1] || options.has(args[i])) {
+    throw new Error('Usage: node scripts/prepare-words.mjs [--archive path] [--lexicon-dir directory]');
+  }
+  options.set(args[i], resolve(args[i + 1]));
 }
-const archivePath = args.length ? resolve(args[1]) : resolve(ROOT, 'vendor', ARCHIVE_NAME);
+const archivePath = options.get('--archive') ?? resolve(ROOT, 'vendor', ARCHIVE_NAME);
 let archive;
 try {
   archive = await readFile(archivePath);
 } catch (error) {
-  if (error.code !== 'ENOENT' || args.length) throw error;
+  if (error.code !== 'ENOENT' || options.has('--archive')) throw error;
   console.log(`Downloading ${SOURCE_URL}`);
   const response = await fetch(SOURCE_URL, { signal: AbortSignal.timeout(120_000) });
   if (!response.ok) throw new Error(`SCOWL download failed: HTTP ${response.status}`);
@@ -101,6 +106,9 @@ function buildVocabulary(paths) {
 }
 const accepted = buildVocabulary(selected);
 const puzzle = buildVocabulary(puzzleSelected);
+// Finish classification before replacing any generated artifacts. Unknown forms
+// require a documented review rather than a silent fallback to either category.
+const classified = await prepareClassifiedTargets(ROOT, puzzle.output, options.get('--lexicon-dir'));
 
 const copyright = files.get(`scowl-${VERSION}/Copyright`);
 if (!copyright) throw new Error('Missing SCOWL copyright notices.');
@@ -139,6 +147,9 @@ const metadata = {
     totalWords: puzzle.total,
     wordsJsonSha256: sha256(puzzle.output),
     includedSourceFiles: puzzleSelected.map((path) => path.replace(`scowl-${VERSION}/`, '')),
+    classifiedFile: 'target-pools.json',
+    classificationMetadata: 'target-source.json',
+    classifiedSha256: classified.metadata.sha256,
   },
 };
 const target = resolve(ROOT, 'dist', 'data');
@@ -147,7 +158,12 @@ await writeFile(resolve(target, 'words.json'), accepted.output);
 await writeFile(resolve(target, 'puzzle-words.json'), puzzle.output);
 await writeFile(resolve(target, 'word-source.json'), `${JSON.stringify(metadata, null, 2)}\n`);
 await writeFile(resolve(target, 'SCOWL-LICENSE.txt'), copyright);
+await writeFile(resolve(target, 'target-pools.json'), classified.output);
+await writeFile(resolve(target, 'target-source.json'), `${JSON.stringify(classified.metadata, null, 2)}\n`);
+await writeFile(resolve(target, 'ESDB-LICENSE.txt'), classified.license);
 console.log(`Prepared ${accepted.total.toLocaleString('en-US')} accepted words (${Buffer.byteLength(accepted.output).toLocaleString('en-US')} bytes).`);
 console.log(JSON.stringify(accepted.counts));
 console.log(`Prepared ${puzzle.total.toLocaleString('en-US')} puzzle words from ${puzzleSelected.length} source files (${Buffer.byteLength(puzzle.output).toLocaleString('en-US')} bytes).`);
 console.log(JSON.stringify(puzzle.counts));
+console.log(`Classified targets: ${classified.metadata.totals.normal} normal, ${classified.metadata.totals.specialized} specialized; independent 80:20 draws.`);
+console.log(JSON.stringify(classified.metadata.wordCounts));
