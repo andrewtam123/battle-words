@@ -57,7 +57,7 @@ export async function prepareClassifiedTargets(root, puzzleOutput, lexiconDirect
       name: 'English Speller Database (ESDB)',
       url: `${URL_ROOT}/scowl.txt`, commit: LEXICON_COMMIT, sourceCommit: LEXICON_SOURCE_COMMIT,
       sha256: LEXICON_SHA256, licenseUrl: `${URL_ROOT}/Copyright`, licenseFile: 'ESDB-LICENSE.txt', licenseSha256: LEXICON_LICENSE_SHA256,
-      modifications: 'Parsed lexical groups and inflection relationships to classify the unchanged SCOWL 2020.12.07 target inventory. No upstream code executed; no ESDB words added to target or accepted vocabularies.',
+      modifications: 'Parsed lexical groups and inflection relationships to classify the American-only SCOWL 2020.12.07 target inventory. No upstream code executed; no ESDB words added to target or accepted vocabularies.',
     },
     overrides: { file: 'scripts/data/target-overrides.json', sha256: sha256(overridesBytes), entries: overrides },
     wordCounts: counts,

@@ -12,7 +12,7 @@ const union = JSON.parse(await readFile(new URL('puzzle-words.json', data)));
 const source = JSON.parse(await readFile(new URL('target-source.json', data)));
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 
-test('classified pools partition every original target exactly once at every length', () => {
+test('classified pools partition every American target exactly once at every length', () => {
   assert.deepEqual(Object.keys(pools), Object.keys(union));
   for (const [length, pool] of Object.entries(pools)) {
     assert.deepEqual(Object.keys(pool), ['normal', 'specialized']);
@@ -28,17 +28,17 @@ test('classified pools partition every original target exactly once at every len
     const joined = [...pool.normal, ...pool.specialized].sort();
     assert.deepEqual(joined, union[length], `No omissions, additions or overlapping categories for length ${length}`);
   }
-  assert.equal(source.totals.normal + source.totals.specialized, 34679);
+  assert.deepEqual(source.totals, { normal: 18239, specialized: 15060 });
 });
 
 test('real classifications implement independent meanings, irregular forms and regular plural exceptions', () => {
   for (const word of ['acting', 'building', 'painting', 'boring', 'learned', 'studied', 'stopped', 'dreamed',
     'went', 'taken', 'feet', 'mice', 'children', 'criteria', 'taller', 'tallest', 'better', 'best',
-    'likest', 'flashest', 'chequing', 'quickly', 'kindness', 'teacher']) {
+    'likest', 'flashest', 'quickly', 'kindness', 'teacher']) {
     assert.ok(pools[word.length].normal.includes(word), `${word} must be normal`);
   }
   for (const word of ['acted', 'walks', 'babies', 'knives', 'leaves', 'wolves', 'staves',
-    'paintings', 'takes', 'sings', 'ones', 'others', 'noes', 'looneyies']) {
+    'paintings', 'takes', 'sings', 'ones', 'others', 'noes']) {
     assert.ok(pools[word.length].specialized.includes(word), `${word} must be specialized`);
   }
 });
@@ -52,7 +52,7 @@ test('classification provenance pins vocabulary, policy, source, overrides and c
   assert.equal(source.vocabulary.removed, 0);
   assert.equal(source.source.sha256, LEXICON_SHA256);
   assert.equal(source.unresolved, 0);
-  assert.equal(Object.values(source.reasonCounts).reduce((sum, count) => sum + count, 0), 34679);
+  assert.equal(Object.values(source.reasonCounts).reduce((sum, count) => sum + count, 0), 33299);
   const overrides = await readFile(new URL('../scripts/data/target-overrides.json', import.meta.url));
   assert.equal(source.overrides.sha256, sha256(overrides));
   assert.deepEqual(source.overrides.entries, JSON.parse(overrides));

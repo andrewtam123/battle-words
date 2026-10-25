@@ -7,10 +7,10 @@ const dataUrl = new URL('../dist/data/', import.meta.url);
 const wordBytes = await readFile(new URL('words.json', dataUrl));
 const words = JSON.parse(wordBytes);
 const source = JSON.parse(await readFile(new URL('word-source.json', dataUrl), 'utf8'));
-const expectedCounts = { 4: 3256, 5: 6676, 6: 11176, 7: 15940, 8: 18049, 9: 17596, 10: 15008 };
+const expectedCounts = { 4: 3168, 5: 6421, 6: 10742, 7: 15385, 8: 17351, 9: 16707, 10: 14047 };
 const puzzleBytes = await readFile(new URL('puzzle-words.json', dataUrl));
 const puzzles = JSON.parse(puzzleBytes);
-const expectedPuzzleCounts = { 4: 1922, 5: 3568, 6: 5468, 7: 6916, 8: 6754, 9: 5714, 10: 4337 };
+const expectedPuzzleCounts = { 4: 1878, 5: 3462, 6: 5292, 7: 6720, 8: 6526, 9: 5392, 10: 4029 };
 
 test('the bundled vocabulary has exactly the seven required sorted, unique word pools', () => {
   assert.deepEqual(Object.keys(words), ['4', '5', '6', '7', '8', '9', '10']);
@@ -32,13 +32,13 @@ test('provenance counts and checksum match the shipped word data', () => {
   assert.equal(source.sourceArchiveSha256, '5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc');
   assert.deepEqual(source.wordCounts, expectedCounts);
   assert.equal(source.totalWords, Object.values(words).reduce((total, pool) => total + pool.length, 0));
-  assert.equal(source.totalWords, 87701);
+  assert.equal(source.totalWords, 83821);
   assert.equal(source.wordsJsonSha256, createHash('sha256').update(wordBytes).digest('hex'));
-  assert.equal(source.wordsJsonSha256, '0ac42b1613d53c6f06b4b7f240b00086c3a2f96b596c0e966b00bc16fa964f7d');
+  assert.equal(source.wordsJsonSha256, '1de6e4a5ed213fb0b47b4fb8683b27ca61f5f5c85a032f7e7d7d2b34eac72a5a');
   assert.equal(source.filters.subcategory, 'words');
   assert.equal(source.filters.maximumScowlSizeInclusive, 70);
   assert.equal(source.filters.acceptedLinePattern, '^[a-z]{4,10}$');
-  assert.equal(source.includedSourceFiles.length, 88);
+  assert.equal(source.includedSourceFiles.length, 16);
 });
 
 test('level-35 targets are sorted, unique, and a strict subset of accepted answers', () => {
@@ -54,25 +54,25 @@ test('level-35 targets are sorted, unique, and a strict subset of accepted answe
     }
   }
   assert.deepEqual(source.puzzleSelection.wordCounts, expectedPuzzleCounts);
-  assert.equal(source.puzzleSelection.totalWords, 34679);
+  assert.equal(source.puzzleSelection.totalWords, 33299);
   assert.equal(source.puzzleSelection.file, 'puzzle-words.json');
   assert.equal(source.puzzleSelection.wordsJsonSha256, createHash('sha256').update(puzzleBytes).digest('hex'));
-  assert.equal(source.puzzleSelection.wordsJsonSha256, 'dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de');
+  assert.equal(source.puzzleSelection.wordsJsonSha256, '3c6fa5455e4705c4516ee8ff0f77e0e66172a5eba8e523729810c7647e9f944d');
 });
 
-test('adding longer words preserves every existing 4–8-letter pool', () => {
-  const subsetHash = pools => createHash('sha256').update(`${JSON.stringify(
-    Object.fromEntries([4, 5, 6, 7, 8].map(length => [length, pools[length]])),
-  )}\n`).digest('hex');
-  assert.equal(subsetHash(words), '849b73114a92f6591eeef6ea42773dba901e2cc698e8ae7ada1fcae15b9bf47d');
-  assert.equal(subsetHash(puzzles), '63e3c40eb41c8db4833cfe5fdf28965702614ee4204823121e3151dc25ce16be');
+test('both new-game banks use only standard American source categories at every included tier', () => {
+  assert.deepEqual(source.filters.spellingCategories, ['english', 'american']);
+  const paths = levels => ['american', 'english'].flatMap(spelling =>
+    levels.map(level => `final/${spelling}-words.${level}`));
+  assert.deepEqual(source.includedSourceFiles, paths([10, 20, 35, 40, 50, 55, 60, 70]));
+  assert.deepEqual(source.puzzleSelection.includedSourceFiles, paths([10, 20, 35]));
 });
 
 test('target cutoff includes lower SCOWL tiers and excludes higher-tier examples', () => {
   assert.equal(source.puzzleSelection.maximumScowlSizeInclusive, 35);
   assert.deepEqual(source.puzzleSelection.includedScowlSizes, [10, 20, 35]);
   const levels = source.puzzleSelection.includedSourceFiles.map(path => Number(path.split('.').at(-1)));
-  assert.equal(levels.length, 33);
+  assert.equal(levels.length, 6);
   assert.deepEqual([...new Set(levels)].sort((a, b) => a - b), [10, 20, 35]);
   const targets = new Set(Object.values(puzzles).flat());
   for (const word of ['young', 'cream', 'cigars']) {
@@ -84,15 +84,30 @@ test('target cutoff includes lower SCOWL tiers and excludes higher-tier examples
   }
 });
 
-test('the word bank includes alternative anagrams, inflections, and regional spellings', () => {
+test('new-game banks retain American words and reject regional spelling alternatives', () => {
   const accepted = new Set(Object.values(words).flat());
+  const targets = new Set(Object.values(puzzles).flat());
   for (const word of [
     'care', 'race', 'acre', 'alert', 'alter', 'later',
     'walk', 'walks', 'walked', 'walking',
-    'color', 'colour', 'center', 'centre',
-    'theater', 'theatre', 'offense', 'offence',
+    'color', 'gray', 'center', 'theater', 'defense', 'offense', 'organize',
+    'traveler', 'traveled', 'canceled', 'catalog', 'jewelry', 'aluminum',
+    'plow', 'mold', 'analyze', 'fulfill', 'dialogue', 'program', 'meter',
+    'license', 'practice', 'check',
   ]) {
     assert.ok(accepted.has(word), `Missing vocabulary example: ${word}`);
+  }
+  for (const word of ['color', 'center', 'theater', 'organize', 'traveled']) {
+    assert.ok(targets.has(word), `Missing American target: ${word}`);
+  }
+  for (const word of [
+    'colour', 'grey', 'centre', 'theatre', 'defence', 'offence', 'organise',
+    'traveller', 'travelled', 'cancelled', 'catalogue', 'jewellery', 'aluminium',
+    'plough', 'mould', 'analyse', 'fulfil', 'metre', 'licence', 'practise',
+    'chequed', 'chequing', 'duellings', 'looneyies', 'wizes',
+  ]) {
+    assert.ok(!accepted.has(word), `Non-American alternative must not be accepted in new games: ${word}`);
+    assert.ok(!targets.has(word), `Non-American alternative must not be a new target: ${word}`);
   }
 });
 

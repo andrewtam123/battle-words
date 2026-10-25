@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, DICTIONARY_VERSION, isCompatibleMatchDictionary } from './battle-protocol.js';
+import { PROTOCOL_VERSION, DICTIONARY_VERSION, OUTDATED_ROOM_MESSAGE } from './battle-protocol.js';
 
 export const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
 const ID = /^[a-f0-9]{32}$/;
@@ -106,7 +106,12 @@ export class BattleClient {
 
   async open(id) {
     if (!ID.test(id)) throw new Error('That room link is invalid.');
-    return this.request(`/rooms/${id}`);
+    const room = await this.request(`/rooms/${id}`);
+    if (!['finished', 'expired'].includes(room.phase) &&
+        (room.version !== PROTOCOL_VERSION || room.dictionaryVersion !== DICTIONARY_VERSION)) {
+      throw Object.assign(new Error(OUTDATED_ROOM_MESSAGE), { code: 'ROOM_OUTDATED' });
+    }
+    return room;
   }
 
   stop(clearPending) {
@@ -174,6 +179,7 @@ export class BattleClient {
           this.pings.delete(message.id);
         } else if (message.type === 'error') {
           const error = Object.assign(new Error(message.message), { code: message.code });
+          if (message.code === 'ROOM_OUTDATED') { this.stop(true); this.setStatus('disconnected'); }
           this.onError(error);
           if (message.code === 'SERVICE_ERROR') ws.close();
         }
@@ -189,7 +195,7 @@ export class BattleClient {
       ws.addEventListener('error', () => { if (current()) ws.close(); });
     } catch (error) {
       if (epoch !== this.epoch) return;
-      if (['MATCH_FINISHED', 'ROOM_EXPIRED', 'ROOM_NOT_FOUND', 'NOT_A_PLAYER', 'VERSION_MISMATCH'].includes(error.code)) {
+      if (['MATCH_FINISHED', 'ROOM_EXPIRED', 'ROOM_NOT_FOUND', 'NOT_A_PLAYER', 'VERSION_MISMATCH', 'ROOM_OUTDATED'].includes(error.code)) {
         this.stop(false);
         this.setStatus('disconnected');
       } else this.scheduleReconnect(epoch);
@@ -208,10 +214,10 @@ export class BattleClient {
 
   acceptState(state, ws) {
     if (!state || state.id !== this.roomId) return;
-    if (state.protocolVersion !== PROTOCOL_VERSION || !isCompatibleMatchDictionary(state.dictionaryVersion)) {
-      this.stop(false);
+    if (state.protocolVersion !== PROTOCOL_VERSION || state.dictionaryVersion !== DICTIONARY_VERSION) {
+      this.stop(true);
       this.setStatus('disconnected');
-      this.onError(Object.assign(new Error('The game has been updated. Reload before continuing.'), { code: 'VERSION_MISMATCH' }));
+      this.onError(Object.assign(new Error(OUTDATED_ROOM_MESSAGE), { code: 'ROOM_OUTDATED' }));
       return;
     }
     this.offset = state.serverNow + this.rtt / 2 - this.now();

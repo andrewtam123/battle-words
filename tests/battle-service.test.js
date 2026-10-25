@@ -136,6 +136,92 @@ test('server revalidates answers and keeps both provisional results and opponent
   assert.equal(state.results[0].target, 'race');
 });
 
+test('restored current rooms continue to reject non-American alternatives', async t => {
+    const { storage, sockets, clock } = await playing(t);
+    const saved = storage.data.get('room');
+    saved.match.rounds[0].target = 'recent';
+    saved.match.rounds[0].initialTiles = [...'recent'].map((letter, id) => ({ id, letter }));
+    saved.match.rounds[0].shuffledTiles = [...saved.match.rounds[0].initialTiles].reverse();
+    const before = structuredClone(saved.match);
+    const currentWords = new Set(['recent', 'center']);
+    const room = new RoomService({ storage, getWebSockets: () => sockets }, env,
+      { pools, acceptedWords: currentWords });
+    const joined = await room.fetch(request('connect', player(0)));
+    assert.equal(joined.status, 200, 'current frontend can reconnect to an existing room');
+    assert.equal(room.record.match.dictionaryVersion, DICTIONARY_VERSION);
+    assert.deepEqual(room.record.match.rounds, before.rounds, 'reconnect cannot regenerate the puzzles');
+    assert.equal(room.record.match.deadline, before.deadline);
+    clock.now = 4500;
+    await send(room, sockets[0], { type: 'submit', round: 0, submissionId: 'regional-alternative', answer: 'centre' });
+    const ack = sockets[0].messages.filter(message => message.type === 'ack').at(-1);
+    assert.equal(ack.accepted, false);
+    assert.equal(room.record.match.rounds[0].claims[0], null);
+    assert.equal(ack.reason, 'invalid_answer');
+});
+
+for (const oldVersion of [
+  { dictionaryVersion: 'previous-dictionary', protocolVersion: PROTOCOL_VERSION },
+  { dictionaryVersion: DICTIONARY_VERSION, protocolVersion: PROTOCOL_VERSION + 1 },
+]) {
+  test(`outdated ${oldVersion.dictionaryVersion === DICTIONARY_VERSION ? 'protocol' : 'dictionary'} blocks active-room requests without replacing saved state`, async t => {
+    const { room, ctx, storage, clock } = setup(t);
+    await room.fetch(request('create', player(0)));
+    Object.assign(storage.data.get('room').match, oldVersion);
+    const before = structuredClone(storage.data.get('room'));
+    const writes = storage.writes;
+    const restored = new RoomService(ctx, env, { pools, acceptedWords });
+    for (const [action, seat] of [['create', 0], ['join', 0], ['join', 1], ['connect', 0]]) {
+      const response = await restored.fetch(request(action, player(seat)));
+      assert.equal(response.status, 409);
+      const body = await response.json();
+      assert.equal(body.error.code, 'ROOM_OUTDATED');
+      assert.match(body.error.message, /Start a new battle from Home/);
+    }
+    await assert.rejects(restored.upgrade('unused-ticket', clock.now), error => error.code === 'ROOM_OUTDATED');
+    assert.equal(storage.writes, writes);
+    assert.deepEqual(storage.data.get('room'), before);
+  });
+
+  test(`existing sockets cannot play with an outdated ${oldVersion.dictionaryVersion === DICTIONARY_VERSION ? 'protocol' : 'dictionary'}`, async t => {
+    const { storage, sockets } = await playing(t);
+    Object.assign(storage.data.get('room').match, oldVersion);
+    const before = structuredClone(storage.data.get('room'));
+    const writes = storage.writes;
+    const room = new RoomService({ storage, getWebSockets: () => sockets }, env, { pools, acceptedWords });
+    for (const action of [
+      { type: 'ready' }, { type: 'shuffle', round: 0 },
+      { type: 'submit', round: 0, answer: 'race', submissionId: 'stale' }, { type: 'ping', id: 'stale' },
+    ]) {
+      sockets[0].readyState = 1;
+      sockets[0].messages = [];
+      await send(room, sockets[0], action);
+      assert.equal(sockets[0].messages.at(-1).code, 'ROOM_OUTDATED');
+      assert.equal(sockets[0].closeCode, 4002);
+    }
+    assert.equal(storage.writes, writes);
+    assert.deepEqual(storage.data.get('room'), before);
+  });
+}
+
+test('completed results from an older dictionary remain public without retaining its word bank', async t => {
+  const { room, storage, clock } = await playing(t);
+  clock.now = 1_000_000;
+  await room.alarm();
+  const saved = storage.data.get('room');
+  saved.match.dictionaryVersion = 'previous-dictionary';
+  saved.match.protocolVersion = 0;
+  const before = structuredClone(saved);
+  const restored = new RoomService({ storage, getWebSockets: () => [] }, env, { pools, acceptedWords });
+  const response = await restored.fetch(request());
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('Cache-Control'), /public.*immutable/);
+  const result = await response.json();
+  assert.equal(result.phase, 'finished');
+  assert.equal(result.dictionaryVersion, 'previous-dictionary');
+  assert.deepEqual(result.results.results, before.match.results);
+  assert.deepEqual(storage.data.get('room'), before);
+});
+
 test('slow storage preserves receipt timestamps and tie eligibility of queued submissions', async t => {
   const { room, sockets, storage, clock } = await playing(t);
   let release;

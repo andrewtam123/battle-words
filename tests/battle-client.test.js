@@ -7,6 +7,8 @@ import { PROTOCOL_VERSION, DICTIONARY_VERSION } from '../dist/js/battle-protocol
 const storage = () => { const map = new Map(); return { getItem: key => map.get(key), setItem: (key,value) => map.set(key,value) }; };
 const id = 'a'.repeat(32);
 const legacyDictionaryVersion = 'scowl-2020.12.07:0ac42b1613d53c6f06b4b7f240b00086c3a2f96b596c0e966b00bc16fa964f7d:dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de';
+const oldDictionaryVersions = [legacyDictionaryVersion,
+  `${legacyDictionaryVersion}:regular-inflections-v1:4de0f47dd08b450262ba32a1e6230e5c85a387acfb97857ce9098eeba88d75f7`];
 
 test('pending words have no outcome; final feedback distinguishes wins, ties and late correct losses', () => {
   assert.deepEqual(roundFeedback(null,0,'care'), {appearance:'',text:''});
@@ -132,40 +134,9 @@ test('reconnect resends one pending submission with its original ID and drops it
   assert.equal(client.pending,null);
 });
 
-test('known pre-classification rooms reconnect without rewriting their dictionary version', async () => {
-  const received = [];
-  const errors = [];
-  const sent = [];
-  const client = new BattleClient({
-    apiUrl: 'https://example.test', storage: storage(), now: () => 1000,
-    onState: state => received.push(state), onError: error => errors.push(error),
-    fetchImpl: async (url, options) => {
-      const body = JSON.parse(options.body);
-      assert.equal(body.dictionaryVersion, DICTIONARY_VERSION, 'HTTP pairing still uses the current release');
-      assert.equal(body.version, PROTOCOL_VERSION);
-      return Response.json({ seat: 0 });
-    },
-  });
-  await client.join(id, 'Alex');
-  client.roomId = id;
-  client.status = 'connected';
-  client.pending = { round: 0, answer: 'care', submissionId: 'original-submission' };
-  const socket = { readyState: 1, send: message => sent.push(JSON.parse(message)) };
-  client.socket = socket;
-  const state = {
-    id, protocolVersion: PROTOCOL_VERSION, dictionaryVersion: legacyDictionaryVersion,
-    serverNow: 1000, index: 0, phase: 'playing', ownSubmission: null,
-  };
-  client.acceptState(state, socket);
-  assert.equal(client.status, 'connected');
-  assert.deepEqual(received, [state]);
-  assert.equal(state.dictionaryVersion, legacyDictionaryVersion);
-  assert.deepEqual(errors, []);
-  assert.deepEqual(sent, [{ type: 'submit', round: 0, answer: 'care', submissionId: 'original-submission' }]);
-});
-
-test('legacy room support does not allow unknown dictionaries or mismatched protocols', () => {
+test('outdated snapshots stop play and pending retries with a new-battle instruction', () => {
   for (const [dictionaryVersion, protocolVersion] of [
+    ...oldDictionaryVersions.map(version => [version, PROTOCOL_VERSION]),
     [legacyDictionaryVersion.replace('dbd074bb', '00000000'), PROTOCOL_VERSION],
     [legacyDictionaryVersion.replace('0ac42b16', '00000000'), PROTOCOL_VERSION],
     [legacyDictionaryVersion, PROTOCOL_VERSION + 1],
@@ -180,14 +151,62 @@ test('legacy room support does not allow unknown dictionaries or mismatched prot
     });
     client.roomId = id;
     client.status = 'connected';
+    client.pending = { round: 0, answer: 'care', submissionId: 'unsent' };
     client.acceptState({ id, dictionaryVersion, protocolVersion, phase: 'playing' });
     assert.equal(client.state, null);
     assert.equal(client.status, 'disconnected');
-    assert.equal(errors[0].code, 'VERSION_MISMATCH');
+    assert.equal(errors[0].code, 'ROOM_OUTDATED');
+    assert.match(errors[0].message, /Start a new battle from Home/);
+    assert.equal(client.pending, null);
   }
 });
 
-test('completed public links remain readable with their original dictionary version', async () => {
+test('opening outdated unfinished rooms fails before joining; current rooms remain available', async () => {
+  for (const dictionaryVersion of [DICTIONARY_VERSION, ...oldDictionaryVersions]) {
+    const info = { id, phase: 'lobby', version: PROTOCOL_VERSION, dictionaryVersion, players: [null, null] };
+    const client = new BattleClient({ apiUrl: 'https://example.test', storage: storage(),
+      fetchImpl: async () => Response.json(info) });
+    if (dictionaryVersion === DICTIONARY_VERSION) assert.deepEqual(await client.open(id), info);
+    else await assert.rejects(client.open(id), error => error.code === 'ROOM_OUTDATED' && /Start a new battle from Home/.test(error.message));
+  }
+});
+
+test('outdated room connection errors stop automatic reconnecting', async () => {
+  const errors = [];
+  const client = new BattleClient({ apiUrl: 'https://example.test', storage: storage(),
+    onError: error => errors.push(error),
+    fetchImpl: async () => Response.json({ error: { code: 'ROOM_OUTDATED', message: 'Start a new battle from Home.' } }, { status: 409 }) });
+  client.credential(id);
+  await assert.rejects(client.connect(id), error => error.code === 'ROOM_OUTDATED');
+  assert.equal(client.status, 'disconnected');
+  assert.equal(client.retryTimer, 0);
+  assert.equal(errors.length, 1);
+});
+
+test('an outdated-room socket error clears pending submissions and stops reconnecting', async () => {
+  const errors = [];
+  let socket;
+  class TestSocket {
+    constructor() { socket = this; this.readyState = 1; this.handlers = new Map(); }
+    addEventListener(name, handler) { this.handlers.set(name, handler); }
+    close() { this.readyState = 3; this.handlers.get('close')?.({ code: 4002 }); }
+  }
+  const client = new BattleClient({ apiUrl: 'https://example.test', storage: storage(),
+    onError: error => errors.push(error), WebSocketImpl: TestSocket,
+    fetchImpl: async () => Response.json({ ticket: 'b'.repeat(32) }) });
+  client.credential(id);
+  await client.connect(id);
+  client.pending = { round: 0, answer: 'care', submissionId: 'unsent' };
+  socket.handlers.get('message')({ data: JSON.stringify({ type: 'error', code: 'ROOM_OUTDATED', message: 'Start a new battle from Home.' }) });
+  assert.equal(client.status, 'disconnected');
+  assert.equal(client.retryTimer, 0);
+  assert.equal(client.pending, null);
+  assert.equal(client.socket, null);
+  assert.equal(errors[0].code, 'ROOM_OUTDATED');
+});
+
+for (const [index, legacyDictionaryVersion] of oldDictionaryVersions.entries()) {
+test(`completed public link ${index + 1} remains readable with its original dictionary version`, async () => {
   const result = { id, phase: 'finished', dictionaryVersion: legacyDictionaryVersion, results: { rounds: [] } };
   const client = new BattleClient({
     apiUrl: 'https://example.test', storage: storage(),
@@ -199,3 +218,4 @@ test('completed public links remain readable with their original dictionary vers
   });
   assert.deepEqual(await client.open(id), result);
 });
+}

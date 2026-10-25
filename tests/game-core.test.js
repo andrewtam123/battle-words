@@ -91,7 +91,7 @@ test('both controllers retain the private target fallback without supplying a ta
   assert.equal(isValidAnswer('care', battle.rounds[0].initialTiles, []), false);
 });
 
-test('seeded targets and all tile arrangements retain the pre-refactor random stream', async () => {
+test('American array-pool targets and tile arrangements match the prior runtime baseline', async () => {
   const bank = JSON.parse(await readFile(new URL('../dist/data/puzzle-words.json', import.meta.url), 'utf8'));
   let now = 1000;
   const engine = new GameEngine({ pools: bank, now: () => now });
@@ -108,7 +108,9 @@ test('seeded targets and all tile arrangements retain the pre-refactor random st
     targets: chooseWords(bank, 123), solo,
     battle: match.rounds.map(({ target, initialTiles, shuffledTiles }) => ({ target, initialTiles, shuffledTiles })),
   };
-  // Captured before extraction: solo consumes shuffles on demand; battle precomputes all of them.
+  // Independently computed with the f4fc2c2 runtime and the American target inventory.
+  // Array-pool sampling stays compatible; classified 80:20 draws have separate tests.
+  // Solo consumes shuffles on demand; battle precomputes all of them.
   assert.equal(createHash('sha256').update(JSON.stringify(plan)).digest('hex'),
-    'e26be52f6886fcc09dbdb8cf0db2132fd396a86140cdc65f1e52d61012040216');
+    '1ab08296f4139f551c249d67d85654af5c02096436ab0bf13b58747368f68b46');
 });

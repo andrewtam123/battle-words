@@ -15,8 +15,8 @@
   },
   "vocabulary": {
     "file": "puzzle-words.json",
-    "sha256": "dbd074bb98944d70e5791f544c62d213d92303c163ebec5d7721398b566b16de",
-    "words": 34679,
+    "sha256": "3c6fa5455e4705c4516ee8ff0f77e0e66172a5eba8e523729810c7647e9f944d",
+    "words": 33299,
     "added": 0,
     "removed": 0
   },
@@ -29,11 +29,11 @@
     "licenseUrl": "https://raw.githubusercontent.com/en-wl/wordlist-diff/7f2f4078354752045ee16a041605686561122185/Copyright",
     "licenseFile": "ESDB-LICENSE.txt",
     "licenseSha256": "71bffd4b74ad47fff01c8b3c666e77da92737854e568850d8728024e0a53f304",
-    "modifications": "Parsed lexical groups and inflection relationships to classify the unchanged SCOWL 2020.12.07 target inventory. No upstream code executed; no ESDB words added to target or accepted vocabularies."
+    "modifications": "Parsed lexical groups and inflection relationships to classify the American-only SCOWL 2020.12.07 target inventory. No upstream code executed; no ESDB words added to target or accepted vocabularies."
   },
   "overrides": {
     "file": "scripts/data/target-overrides.json",
-    "sha256": "0ec449e4d54ccc31c4a83b8aa7410a1865a5db5e0e224694ef1d3593e6522448",
+    "sha256": "388b270183961812745633cfb096f878ec077b3b25c2b3f378d03013b95c9ed5",
     "entries": {
       "anybodies": {
         "category": "specialized",
@@ -50,19 +50,6 @@
       "cellulars": {
         "category": "specialized",
         "reason": "Regular plural of cellular; retained SCOWL spelling absent from the pinned ESDB export."
-      },
-      "chequed": {
-        "category": "specialized",
-        "reason": "Regular past form of cheque, with final e plus d; retained SCOWL regional spelling absent from the pinned ESDB export."
-      },
-      "chequing": {
-        "category": "normal",
-        "reason": "Canadian banking adjective qualifies as an independent meaning; retained SCOWL spelling absent from the pinned ESDB export.",
-        "source": "https://www.collinsdictionary.com/dictionary/english/chequing"
-      },
-      "duellings": {
-        "category": "specialized",
-        "reason": "Regular plural of the noun duelling; retained SCOWL regional spelling absent from the pinned ESDB export."
       },
       "flashest": {
         "category": "normal",
@@ -83,10 +70,6 @@
       "likest": {
         "category": "normal",
         "reason": "Superlative of like; all comparative and superlative forms belong to the normal pool."
-      },
-      "looneyies": {
-        "category": "specialized",
-        "reason": "ESDB lists this existing SCOWL target as a variant plural of loony/looney. Treat the anomalous plural spelling as specialized, not an interesting irregular form."
       },
       "multi": {
         "category": "normal",
@@ -156,10 +139,6 @@
         "category": "specialized",
         "reason": "Retained SCOWL plural variant of whisky using s; no independent meaning in the pinned ESDB export."
       },
-      "wizes": {
-        "category": "specialized",
-        "reason": "Regular es plural of wiz; retained SCOWL spelling absent from the pinned ESDB export."
-      },
       "wounder": {
         "category": "normal",
         "reason": "Independent agent noun, not an inflection. ESDB lists its headword at size 80; it already belongs to the SCOWL target inventory."
@@ -172,46 +151,46 @@
   },
   "wordCounts": {
     "4": {
-      "normal": 1572,
-      "specialized": 350
+      "normal": 1529,
+      "specialized": 349
     },
     "5": {
-      "normal": 2227,
-      "specialized": 1341
+      "normal": 2157,
+      "specialized": 1305
     },
     "6": {
-      "normal": 3199,
-      "specialized": 2269
+      "normal": 3093,
+      "specialized": 2199
     },
     "7": {
-      "normal": 3564,
-      "specialized": 3352
+      "normal": 3459,
+      "specialized": 3261
     },
     "8": {
-      "normal": 3428,
-      "specialized": 3326
+      "normal": 3315,
+      "specialized": 3211
     },
     "9": {
-      "normal": 2900,
-      "specialized": 2814
+      "normal": 2750,
+      "specialized": 2642
     },
     "10": {
-      "normal": 2020,
-      "specialized": 2317
+      "normal": 1936,
+      "specialized": 2093
     }
   },
   "totals": {
-    "normal": 18910,
-    "specialized": 15769
+    "normal": 18239,
+    "specialized": 15060
   },
   "reasonCounts": {
-    "independent-entry": 16959,
-    "regular-inflection": 15749,
-    "irregular-inflection": 396,
-    "reviewed": 33,
-    "comparison": 1542
+    "independent-entry": 16417,
+    "regular-inflection": 15044,
+    "irregular-inflection": 299,
+    "reviewed": 28,
+    "comparison": 1511
   },
   "unresolved": 0,
   "file": "target-pools.json",
-  "sha256": "4de0f47dd08b450262ba32a1e6230e5c85a387acfb97857ce9098eeba88d75f7"
+  "sha256": "e11332b277f2b4c880d8f78b1d677891e7452df62be242f4f0de3e0e1e591906"
 }

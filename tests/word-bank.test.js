@@ -7,8 +7,8 @@ import { chooseWords, GameEngine } from '../dist/js/engine.js';
 test('the loader supplies classified targets and preserves broader anagram acceptance', async t => {
   t.mock.method(globalThis, 'fetch', async url => new Response(await readFile(url)));
   const bank = await loadWordBank();
-  assert.equal(bank.targetCount, 34679);
-  assert.equal(bank.count, 87701);
+  assert.equal(bank.targetCount, 33299);
+  assert.equal(bank.count, 83821);
   assert.equal(bank.normalCount + bank.specializedCount, bank.targetCount);
   assert.ok(bank.normalCount > 0 && bank.specializedCount > 0);
   assert.ok(bank.pools[4].normal.includes('neat'));
@@ -29,6 +29,22 @@ test('the loader supplies classified targets and preserves broader anagram accep
   for (const letter of 'etna') engine.typeLetter(letter);
   assert.equal(engine.snapshot().feedback, 'correct');
   assert.equal(engine.snapshot().results[0].answer, 'etna');
+});
+
+test('solo rejects a removed spelling even when it uses the exact target letters', async t => {
+  t.mock.method(globalThis, 'fetch', async url => new Response(await readFile(url)));
+  const bank = await loadWordBank();
+  const engine = new GameEngine({ ...bank, pools: { ...bank.pools, 4: ['care'], 5: ['meter'] }, now: () => 0 });
+  engine.start(42);
+  for (let round = 0; round < 2; round++) {
+    for (const letter of 'care') engine.typeLetter(letter);
+    engine.nextRound();
+  }
+  for (const letter of 'metre') engine.typeLetter(letter);
+  assert.equal(engine.snapshot().invalidEntry, 'metre');
+  assert.equal(engine.snapshot().status, 'playing');
+  for (const letter of 'meter') engine.typeLetter(letter);
+  assert.equal(engine.snapshot().feedback, 'correct');
 });
 
 for (const filename of ['target-pools.json', 'words.json']) {

@@ -75,22 +75,26 @@ The workflow tests the project, validates the backend bundle, optionally inserts
 
 ## Word bank and credits
 
-The bundled vocabulary comes from the official **SCOWL 2020.12.07** release. Puzzle targets retain **34,679** unique lowercase words from levels **35 and below** in [`dist/data/puzzle-words.json`](dist/data/puzzle-words.json). The game loads their normal/specialized partition from [`dist/data/target-pools.json`](dist/data/target-pools.json). Accepted answers retain the broader **87,701** words from levels **70 and below** in [`dist/data/words.json`](dist/data/words.json), so a less-common alternative anagram can still count:
+The bundled vocabulary uses American spellings from the official **SCOWL 2020.12.07** release. Puzzle targets contain **33,299** unique lowercase words from levels **35 and below** in [`dist/data/puzzle-words.json`](dist/data/puzzle-words.json). The game loads their normal/specialized partition from [`dist/data/target-pools.json`](dist/data/target-pools.json). Accepted answers contain the broader **83,821** American-spelling words from levels **70 and below** in [`dist/data/words.json`](dist/data/words.json), so a less-common alternative anagram can still count:
 
 | Letters | Normal targets | Specialized targets | Total targets (≤35) | Accepted answers (≤70) |
 |---|---:|---:|---:|---:|
-| 4 | 1,572 | 350 | 1,922 | 3,256 |
-| 5 | 2,227 | 1,341 | 3,568 | 6,676 |
-| 6 | 3,199 | 2,269 | 5,468 | 11,176 |
-| 7 | 3,564 | 3,352 | 6,916 | 15,940 |
-| 8 | 3,428 | 3,326 | 6,754 | 18,049 |
-| 9 | 2,900 | 2,814 | 5,714 | 17,596 |
-| 10 | 2,020 | 2,317 | 4,337 | 15,008 |
-| **Total** | **18,910** | **15,769** | **34,679** | **87,701** |
+| 4 | 1,529 | 349 | 1,878 | 3,168 |
+| 5 | 2,157 | 1,305 | 3,462 | 6,421 |
+| 6 | 3,093 | 2,199 | 5,292 | 10,742 |
+| 7 | 3,459 | 3,261 | 6,720 | 15,385 |
+| 8 | 3,315 | 3,211 | 6,526 | 17,351 |
+| 9 | 2,750 | 2,642 | 5,392 | 16,707 |
+| 10 | 1,936 | 2,093 | 4,029 | 14,047 |
+| **Total** | **18,239** | **15,060** | **33,299** | **83,821** |
 
 SCOWL's numbered source files contain additions at each level. A raw level-35 file therefore does **not** contain all lower-level words on its own; the assembled size-35 dictionary combines levels **10, 20, and 35**. Our target pool includes all three levels. SCOWL levels describe dictionary coverage, so the cutoff reduces obscure targets without guaranteeing every remaining word is familiar.
 
-Both extractions include SCOWL's normal `words` categories, covering English, American, British (`-ise` and `-ize`), Canadian, and accepted variant levels 1–2 within the respective size cutoff. They preserve plurals and inflections. They reject uppercase entries, non-ASCII letters, punctuation, and lengths outside 4–10. Proper-name, abbreviation, contraction, upper-case, and special source categories are excluded. There are no additional frequency, familiarity, or manual word exclusions. The original 4–8-letter vocabulary is unchanged; 9- and 10-letter pools use the same extraction rules.
+Both extractions include only SCOWL's `english-words` and `american-words` source categories within the respective size cutoff. The `english` category contains shared spellings; `american` supplies American forms. British, Canadian and all optional variant categories are excluded, since the variant lists can reintroduce spellings such as *theatre*, *grey* and *cancelled*. Both targets and accepted answers use this policy: *color*, *center* and *theater* remain; *colour*, *centre* and *theatre* do not.
+
+The filter preserves plurals and inflections, rejecting uppercase entries, non-ASCII letters, punctuation, and lengths outside 4–10. Proper-name, abbreviation, contraction, upper-case, and special source categories are excluded. There are no additional frequency, familiarity, or manual word exclusions. All seven lengths use the same extraction rules; this spelling policy intentionally narrows the earlier regional word lists.
+
+Solo and newly created battles use the current American-spelling bank. After an incompatible dictionary update, an unfinished older room requires starting a new battle. Completed result links remain readable from their stored results; historical dictionaries are not retained.
 
 Target categories change selection probabilities, not the vocabulary or alternative-answer rules:
 

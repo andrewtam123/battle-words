@@ -2,7 +2,7 @@ import {
   createMatch, joinSeat, readyPlayer, advanceMatch, submitAnswer,
   shufflePlayer, nextAlarmAt, snapshotFor, publicResults,
 } from '../dist/js/battle-rules.js';
-import { PROTOCOL_VERSION, DICTIONARY_VERSION } from '../dist/js/battle-protocol.js';
+import { PROTOCOL_VERSION, DICTIONARY_VERSION, OUTDATED_ROOM_MESSAGE } from '../dist/js/battle-protocol.js';
 import {
   HttpError, ID_PATTERN, json, errorResponse, checkVersion, checkCredential,
   cleanName, readJson, randomId, randomSeed, digest, allowedOrigin,
@@ -125,6 +125,14 @@ export class RoomService {
     this.requireRoom();
     if (this.record.match.phase === 'expired') throw new HttpError(410, 'ROOM_EXPIRED', 'This waiting room has expired. Create a new room.');
     if (this.record.match.phase === 'finished') throw new HttpError(409, 'MATCH_FINISHED', 'This match has ended. Open its results.');
+    this.requireCurrentMatch();
+  }
+
+  requireCurrentMatch() {
+    const match = this.record.match;
+    if (match.protocolVersion !== PROTOCOL_VERSION || match.dictionaryVersion !== DICTIONARY_VERSION) {
+      throw new HttpError(409, 'ROOM_OUTDATED', OUTDATED_ROOM_MESSAGE);
+    }
   }
 
   seatFor(hash) {
@@ -189,6 +197,7 @@ export class RoomService {
         let seat;
         await this.change(() => {
           if (this.record) {
+            this.requireCurrentMatch();
             advanceMatch(this.record.match, now);
             seat = this.record.credentials.indexOf(hash);
             if (seat >= 0) return;
@@ -280,6 +289,7 @@ export class RoomService {
         let message;
         try { message = JSON.parse(raw); } catch { throw new HttpError(400, 'INVALID_MESSAGE', 'Send a JSON object.'); }
         if (!message || Array.isArray(message) || typeof message !== 'object') throw new HttpError(400, 'INVALID_MESSAGE', 'Send a JSON object.');
+        this.requireCurrentMatch();
         if (message.type === 'ping') {
           this.send(ws, { type: 'pong', id: typeof message.id === 'string' ? message.id.slice(0, 64) : null, now: receivedAt });
           return;
@@ -308,6 +318,7 @@ export class RoomService {
       } catch (error) {
         this.send(ws, { type: 'error', code: error instanceof HttpError ? error.code : 'SERVICE_ERROR',
           message: error instanceof HttpError ? error.message : 'The room could not process that action. Reconnect to retry.' });
+        if (error.code === 'ROOM_OUTDATED') { try { ws.close(4002, 'Start a new battle.'); } catch {} }
         if (!(error instanceof HttpError)) { try { ws.close(1011, 'Please reconnect.'); } catch {} }
       }
     }).finally(() => { this.pendingSocketEvents -= 1; });

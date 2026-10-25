@@ -239,7 +239,7 @@ async function initialize() {
     ui.start.replaceChildren(document.createTextNode('Play solo'), node('span', '', '→'));
     ui.start.lastElementChild.setAttribute('aria-hidden', 'true');
     ui['load-status'].textContent = 'No daily limit. Just one more round.';
-    ui['dictionary-info'].textContent = `${bank.targetCount.toLocaleString()} puzzle words from SCOWL 2020.12.07, through level 35. ${bank.count.toLocaleString()} accepted answers through level 70. English, American, British, and Canadian spellings. Grammatical information from the English Speller Database (ESDB).`;
+    ui['dictionary-info'].textContent = `${bank.targetCount.toLocaleString()} puzzle words from SCOWL 2020.12.07, through level 35. ${bank.count.toLocaleString()} accepted answers through level 70. American spellings. Grammatical information from the English Speller Database (ESDB).`;
   } catch (error) {
     ui.start.textContent = 'Words unavailable';
     ui['load-status'].textContent = 'Couldn’t load the words. Check your connection and try again.';

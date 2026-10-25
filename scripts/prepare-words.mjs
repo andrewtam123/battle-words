@@ -21,12 +21,9 @@ const VERSION = '2020.12.07';
 const ARCHIVE_NAME = `scowl-${VERSION}.tar.gz`;
 const SOURCE_URL = `https://downloads.sourceforge.net/wordlist/${ARCHIVE_NAME}`;
 const ARCHIVE_SHA256 = '5587667caa20c4891390c2d42dbb4d5c4c3f41bee77af1457ece3ba23fb859cc';
-const SPELLINGS = [
-  'english', 'american', 'british', 'british_z', 'canadian',
-  'variant_1', 'variant_2',
-  'british_variant_1', 'british_variant_2',
-  'canadian_variant_1', 'canadian_variant_2',
-];
+// SCOWL's standard American dictionary is shared English plus American words.
+// Optional variant lists also contain non-American spellings, so omit them.
+const SPELLINGS = ['english', 'american'];
 const MAX_SIZE = 70;
 const MAX_PUZZLE_SIZE = 35;
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -81,7 +78,7 @@ const selected = [...files.keys()].filter((path) => {
   const match = path.match(/^scowl-2020\.12\.07\/final\/([a-z_0-9]+)-words\.(\d+)$/);
   return match && SPELLINGS.includes(match[1]) && Number(match[2]) <= MAX_SIZE;
 }).sort();
-if (selected.length !== 88) throw new Error(`Unexpected source-file count: ${selected.length}.`);
+if (selected.length !== 16) throw new Error(`Unexpected source-file count: ${selected.length}.`);
 
 // SCOWL's individual source files are incremental. Include every source level
 // at or below the target cutoff, not just files ending in the cutoff itself.
@@ -125,16 +122,17 @@ const metadata = {
   modifications: 'Extracted and deduplicated lowercase ASCII words of 4–10 letters from the source files listed below. Source spelling is unchanged.',
   filters: {
     subcategory: 'words',
+    spellingPolicy: 'Standard American English: shared English and American source categories only; no optional variant lists.',
     spellingCategories: SPELLINGS,
     maximumScowlSizeInclusive: MAX_SIZE,
     acceptedLinePattern: '^[a-z]{4,10}$',
     caseConversion: 'none; uppercase entries are rejected before any normalization',
     sourceEncoding: 'ISO-8859-1',
     ordering: 'deduplicated and sorted by ASCII code point within each length',
-    exclusions: 'No proper-names, upper, abbreviations, contractions, special, or variant_3 files. Non-ASCII letters, punctuation, spaces, and digits are excluded.',
+    exclusions: 'No British, Canadian, or variant files; no proper-names, upper, abbreviations, contractions, or special files. Non-ASCII letters, punctuation, spaces, and digits are excluded.',
     curation: 'No additional familiarity, frequency, content, or manual word exclusions.',
   },
-  puzzleWordsAndAcceptedAnswers: 'Puzzle targets use all included SCOWL source levels through 35 in puzzle-words.json. Accepted answers retain the full vocabulary through level 70 in words.json.',
+  puzzleWordsAndAcceptedAnswers: 'American-only puzzle targets use all included SCOWL source levels through 35 in puzzle-words.json. American-only accepted answers use the broader vocabulary through level 70 in words.json.',
   wordCounts: accepted.counts,
   totalWords: accepted.total,
   wordsJsonSha256: sha256(accepted.output),

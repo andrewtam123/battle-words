@@ -42,8 +42,7 @@ export function createBattleUI({ onEnter, onExit }) {
     onStatus: () => { if (active) { renderConnection(); render(); } },
     onError: error => {
       if (!active) return;
-      $('message').textContent = error.message || 'Couldn’t reach the room. Please try again.';
-      $('retry').hidden = false;
+      showError(error);
       if (error.code === 'MATCH_FINISHED' && roomId) openRoom(roomId);
     },
     onAck: ack => {
@@ -57,6 +56,19 @@ export function createBattleUI({ onEnter, onExit }) {
     },
   });
   $('name').value = client.name || '';
+
+  function showError(error) {
+    $('message').textContent = error.message || 'Couldn’t reach the room. Please try again.';
+    $('retry').hidden = error.code === 'ROOM_OUTDATED';
+    if (error.code === 'ROOM_OUTDATED') {
+      state = null;
+      joining = joiningBlocked = true;
+      clearEntry();
+      $('setup-title').textContent = 'Start a new battle.';
+      $('setup-note').textContent = '';
+      render();
+    }
+  }
 
   function shareLink() {
     const url = new URL(location.href);
@@ -152,10 +164,7 @@ export function createBattleUI({ onEnter, onExit }) {
         $('setup-note').textContent = `${info.players[0]?.name || 'Your friend'} is waiting. Enter your name to join.`;
       }
     } catch (error) {
-      if (current === operation) {
-        $('message').textContent = error.message;
-        $('retry').hidden = false;
-      }
+      if (current === operation) showError(error);
     } finally {
       if (current === operation) {
         busy = false;
@@ -180,10 +189,7 @@ export function createBattleUI({ onEnter, onExit }) {
       receive(response.state);
       await client.connect(roomId);
     } catch (error) {
-      if (current === operation) {
-        $('message').textContent = error.message;
-        $('retry').hidden = false;
-      }
+      if (current === operation) showError(error);
     } finally {
       if (current === operation) { busy = false; render(); }
     }
@@ -299,7 +305,7 @@ export function createBattleUI({ onEnter, onExit }) {
       $('players').replaceChildren(...state.players.map((player, index) => element('li', '', player
         ? `${player.name}${index === state.seat ? ' (you)' : ''} · ${player.ready ? 'Ready' : state.connected?.[index] ? 'Not ready yet' : 'Disconnected'}`
         : 'Waiting for a friend…')));
-      $('ready').disabled = state.players[state.seat]?.ready || client.status !== 'connected';
+      $('ready').disabled = !bank || state.players[state.seat]?.ready || client.status !== 'connected';
       $('ready').textContent = state.players[state.seat]?.ready ? 'Ready—waiting for your friend' : 'I’m ready';
     } else if (state.phase === 'countdown') {
       panel('countdown');
