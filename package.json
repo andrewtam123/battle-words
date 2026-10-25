@@ -8,6 +8,7 @@
     "start": "node scripts/serve.mjs",
     "test": "node --test",
     "words": "node scripts/prepare-words.mjs",
+    "site:prepare": "node scripts/prepare-site.mjs",
     "battle:dev": "wrangler dev --ip 127.0.0.1 --port 8787",
     "battle:check": "wrangler deploy --dry-run --outdir .tmp/worker",
     "battle:deploy": "wrangler deploy"

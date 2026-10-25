@@ -27,10 +27,11 @@ jobs:
         run: node scripts/configure-battle.mjs
         env:
           BATTLE_API_URL: ${{ vars.BATTLE_API_URL }}
+      - run: npm run site:prepare
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:
-          path: dist
+          path: .tmp/site
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: check

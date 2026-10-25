@@ -1,6 +1,6 @@
 # Battle Words
 
-A mobile-friendly anagram game with 20 words per game, inspired by [18words](https://18words.com/). This is an independent project and is not affiliated with the original game. Play unlimited solo games or invite a friend to a two-player battle. Solo runs entirely in the browser. Battle uses an authoritative Cloudflare service while GitHub Pages continues to serve the static frontend in `dist/`.
+A mobile-friendly anagram game with 20 words per game, inspired by [18words](https://18words.com/). This is an independent project and is not affiliated with the original game. Play unlimited solo games or invite a friend to a two-player battle. Solo runs entirely in the browser. Battle uses an authoritative Cloudflare service while GitHub Pages serves the static frontend packaged from `dist/`.
 
 For agent handoff, see [AGENTS.md](AGENTS.md). For battle hosting, local development, rules and persistence, see [BATTLE_SETUP.md](BATTLE_SETUP.md). [NEXT_STEPS.md](NEXT_STEPS.md) covers the remaining offline caching, dictionary catalog and custom-build roadmap. Those features are not implemented; the first battle version uses the existing 20-round game and vocabulary.
 
@@ -64,14 +64,18 @@ Battle requires a connection. The browser remembers your display name and a priv
 
 ## GitHub Pages
 
-The repository is [andrewtam123/battle-words](https://github.com/andrewtam123/battle-words). The included `.github/workflows/pages.yml` workflow publishes `dist/`; confirm the current deployment status in GitHub Actions. There is no need to add a separate Static HTML or Jekyll workflow.
+The repository is [andrewtam123/battle-words](https://github.com/andrewtam123/battle-words). The included `.github/workflows/pages.yml` workflow packages the editable `dist/` source into `.tmp/site/` and publishes that package; confirm the current deployment status in GitHub Actions. There is no need to add a separate Static HTML or Jekyll workflow.
 
 1. Put this project in a GitHub repository with a `main` branch and push it.
 2. In **Settings → Pages → Build and deployment → Source**, select **GitHub Actions**.
 3. Run the included **Check and publish GitHub Pages** workflow, or push another commit to `main`.
 4. Open the Pages URL shown by the completed deployment.
 
-The workflow tests the project, validates the backend bundle, optionally inserts the public `BATTLE_API_URL` repository variable into the frontend configuration, and uploads `dist/`. Pull requests run checks without publishing. Relative asset paths, module-relative dictionary loading, and the manifest's relative scope support repository URLs such as `https://username.github.io/battle-words/`, as well as a domain root. Any static host can serve the frontend without compilation. The separate, manually dispatched `battle.yml` workflow deploys the Cloudflare service when its account secrets have been configured. The repository and published site use `battle-words`: [play Battle Words](https://andrewtam123.github.io/battle-words/).
+The workflow tests the project, validates the backend bundle, optionally inserts the public `BATTLE_API_URL` repository variable into the frontend configuration, then runs `npm run site:prepare` and uploads `.tmp/site/`. Pull requests run checks and packaging without publishing. Local preview still serves `dist/` directly and needs no packaging. Any static host can serve the prepared package; there is no framework or frontend compilation. Relative paths and the manifest's relative scope support both repository URLs such as `https://username.github.io/battle-words/` and a domain root. The separate, manually dispatched `battle.yml` workflow deploys the Cloudflare service when its account secrets have been configured. The repository and published site use `battle-words`: [play Battle Words](https://andrewtam123.github.io/battle-words/).
+
+Each package puts its JavaScript, dictionary and CSS under one directory named by a content hash. A changed release therefore has new asset URLs, so cached files from different releases cannot be mixed. The page checks a fresh `release.json` before loading the game and refreshes outdated HTML with a bounded retry. Only the current release is packaged.
+
+A page left open across a deployment also checks for updates before creating or joining a battle. Refreshes preserve the entered display name and invitation fragment; existing player credentials keep the same storage keys. A client/service version mismatch offers **Update game**. If the service updates before the website finishes publishing, the page asks the player to try again shortly. Active games are not automatically refreshed. This update handling adds no service worker, offline support or saved solo progress.
 
 ## Word bank and credits
 
@@ -137,9 +141,10 @@ The ESDB directory must contain both pinned `scowl.txt` and `Copyright` files. E
 - `dist/js/battle-protocol.js` and `battle-config.js`: shared version contract and public service URL.
 - `server/`: Cloudflare Worker routing, room authentication, WebSockets and durable storage/alarms; `wrangler.jsonc`: backend deployment configuration.
 - `dist/js/word-bank.js`: one place for loading and validating the bundled vocabularies. Classified level-35 target pools and level-70 accepted answers are passed separately to the engine, preserving legitimate alternative answers.
+- `dist/js/site-release.js`: startup release checks and recovery, shared with checks before battle requests; embedded in published HTML.
 - `dist/data/`: target and accepted-answer word banks, provenance, and licensing; `dist/styles.css` and `dist/assets/` contain presentation resources.
-- `scripts/`: local server and reproducible word-data preparation, including lexical classification under `scripts/lib/` and reviewed decisions under `scripts/data/`; `tests/`: engine and data checks.
+- `scripts/`: local server, deployment packaging in `prepare-site.mjs`, and reproducible word-data preparation, including lexical classification under `scripts/lib/` and reviewed decisions under `scripts/data/`; `tests/`: engine, data and release checks.
 
-Offline support can later add a service worker that caches these same-origin static resources, including the dictionary, without changing the engine. Cache versions, download-completion feedback, and update behavior would belong to that future feature. No service-worker stub is installed now.
+Offline support can later add a service worker that caches these same-origin static resources, including the dictionary, without changing the engine. That feature will need to coordinate cache completeness and offline updates with the existing release packaging. No service-worker stub is installed now.
 
 Graceful handling of Cloudflare usage limits is also a planned task. Its exact approach remains undecided; see [NEXT_STEPS.md](NEXT_STEPS.md).

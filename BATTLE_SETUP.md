@@ -1,6 +1,6 @@
 # Battle Words: hosting and operation
 
-The frontend remains static HTML, CSS and JavaScript in `dist/`, published by the existing GitHub Pages workflow. Battles use a separate Cloudflare Worker with one SQLite-backed Durable Object per room. Solo requires neither the Worker nor a Cloudflare account. The frontend has no compilation step; Wrangler bundles only the backend.
+The frontend remains editable static HTML, CSS and JavaScript in `dist/`. The existing GitHub Pages workflow stages it in `.tmp/site/` with versioned asset paths before publishing. Battles use a separate Cloudflare Worker with one SQLite-backed Durable Object per room. Solo requires neither the Worker nor a Cloudflare account. The frontend has no compilation step; Wrangler bundles only the backend. Local preview serves the source directly.
 
 ## Run both parts locally
 
@@ -31,10 +31,10 @@ Open `http://127.0.0.1:4173/battle-words/`. On localhost the browser automatical
 2. Review `wrangler.jsonc`. Keep the `ROOMS` binding and `BattleRoom` SQLite declaration. Set `ALLOWED_ORIGINS` to the exact frontend origins, separated by commas. An origin is scheme plus hostname and optional port, without a repository path. The checked-in production origin is `https://andrewtam123.github.io`; local preview origins are also allowed.
 3. Run `npx wrangler login`, then `npm run battle:deploy`. This publishes the Worker and provisions the Durable Object namespace. Individual rooms are created on demand. Login is interactive and uses your account; no credentials belong in source files.
 4. Copy the HTTPS Worker origin printed by Wrangler, for example `https://battle-words-api.your-subdomain.workers.dev`.
-5. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, set `BATTLE_API_URL` to that origin. Run **Check and publish GitHub Pages** to publish the frontend with that address. The workflow runs `scripts/configure-battle.mjs` before uploading `dist/`.
+5. In GitHub repository **Settings → Secrets and variables → Actions → Variables**, set `BATTLE_API_URL` to that origin. Run **Check and publish GitHub Pages** to publish the frontend with that address. The workflow runs `scripts/configure-battle.mjs`, then `npm run site:prepare`, and uploads `.tmp/site/`.
 6. Open the published site in two independent browsers. Create a room, share its link, join and ready both players. Check reconnecting and viewing completed results in a third browser.
 
-For another static host, set the exported URL in `dist/js/battle-config.js`, or run `scripts/configure-battle.mjs` with `BATTLE_API_URL` in the environment before publishing. The URL is public configuration. An empty URL on a non-local host leaves battle unavailable and solo usable. The GitHub repository is `andrewtam123/battle-words` and its Pages address is `https://andrewtam123.github.io/battle-words/`.
+For another static host, set the exported URL in `dist/js/battle-config.js`, or run `scripts/configure-battle.mjs` with `BATTLE_API_URL` in the environment. Then run `npm run site:prepare` and publish the contents of `.tmp/site/`. Configure the URL before packaging so it is part of the release hash. The URL is public configuration. An empty URL on a non-local host leaves battle unavailable and solo usable. The GitHub repository is `andrewtam123/battle-words` and its Pages address is `https://andrewtam123.github.io/battle-words/`.
 
 ## Later deployments
 
@@ -42,7 +42,15 @@ The repository and Pages path were renamed from `20words` to `battle-words`. Git
 
 The optional **Publish battle service** GitHub Actions workflow is manually dispatched. Configure the `battle-production` environment and its `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets before using it. Use a Cloudflare API token scoped to deploying Workers in your account. These are administrative secrets and must never appear in browser code or room links. You can instead continue deploying from your authenticated local Wrangler CLI.
 
-The Pages workflow tests and validates the backend bundle but only deploys static files. Publishing the backend is a separate operation. Deploy backend changes before their matching frontend. A client/server protocol or dictionary mismatch asks the player to reload. If an unfinished room was created with an incompatible version, players must start a new battle instead of continuing under different vocabulary. Changing a dictionary requires updating its version.
+The Pages workflow tests and validates the backend bundle but only deploys static files. Publishing the backend is a separate operation. Deploy backend changes before their matching frontend. A client/server protocol or dictionary mismatch offers **Update game**; if Pages still advertises the loaded release, it reports that the update is being published and asks the player to try again shortly. It does not repeatedly reload. If an unfinished room was created with an incompatible version, players must start a new battle instead of continuing under different vocabulary. Changing a dictionary requires updating its version.
+
+`npm run site:prepare` copies the current JavaScript, dictionary JSON and CSS into `_releases/<content-hash>/` inside `.tmp/site/`, preserving relative module and data paths. It writes root `index.html` with an inline startup loader and release ID, plus `release.json`, the manifest and icons. Only one release is included; no historical dictionary or runtime fallback is published. Keep editing `dist/`, not the ignored package.
+
+Startup fetches `release.json` with `no-store` and a fresh query before importing the app. If cached HTML identifies an older release, it refreshes once to a versioned page URL and retains `#room=...`. An already-open page checks again before creating or joining a battle, saving the entered name before any refresh. Update query markers are removed before the app constructs invitations. Player names and credentials stay scoped to the document's hosted path, not the release directory. Active solo and battle gameplay is never automatically refreshed; update recovery adds no service worker or solo persistence.
+
+For deployment checks, read the live `release.json` ID and verify files beneath that release path. The hash covers exact source bytes and the configured API URL, so Windows and CI checkout line endings can produce different local and published IDs. Test ordinary reloads with a previously cached page as well as a fresh browser; a cache-busting file check alone does not exercise startup recovery.
+
+The initial rollout of this loader cannot change a page already running the older, unversioned code. That page must load the new HTML once; subsequent deployments use the automatic release checks. During a create-screen refresh, the transient `#battle` fragment returns to battle setup and is then removed; ordinary invitations continue to use `#room=...`.
 
 Only the current American-spelling dictionary is retained for gameplay. This early-stage game does not preserve historical dictionary datasets or version-to-bank mappings. Keep completed public results readable from their stored names, answers and outcomes, without requiring the former dictionary or deleting the room records.
 

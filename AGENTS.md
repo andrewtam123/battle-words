@@ -26,6 +26,8 @@ The **2026-10-24** spelling update narrows both targets and accepted answers to 
 
 Validation for the American-only, current-dictionary implementation: **152 Node tests passed**, including rejected outdated room actions/reconnects, preserved completed results, and American-only answer validation. All seven generated data/license files reproduced byte-for-byte, and the Worker bundle dry run passed in WSL. Local Chromium transport fixtures at `/battle-words/` checked the new-battle instruction for outdated unfinished rooms without a futile Retry/join form, Home recovery, readable completed results with older spellings, and rejection of `metre` followed by acceptance of `meter` in current games. These are local checks, not a production deployment or a new live two-client match.
 
+The subsequent release-cache fix has **162 passing Node tests**, a successful WSL Worker dry run and successful site packaging. Local Chromium checks simulated two deployments with cached assets and stale HTML: startup selected the current release, names and invitation links survived, saved seats rejoined, and a stale create action refreshed into battle setup. A service/frontend rollout gap offered Update game without a reload loop. An active solo game stayed on its loaded release, including after leaving battle setup while an update check was delayed. These were local transport fixtures, not a live two-client match or a new accessibility audit.
+
 ## Product decisions to preserve
 
 - Exactly **20 rounds**, with lengths defined by `WORD_LENGTHS` in `dist/js/game-core.js` (also reexported by `engine.js`):
@@ -39,7 +41,7 @@ Validation for the American-only, current-dictionary implementation: **152 Node 
 
 ## Architecture and edit locations
 
-`dist/` is the checked-in, editable application source and deployment artifact. There is **no build step** that regenerates its HTML/CSS/JS. Do not replace it with compiled output or add a framework/build system without a task that needs it.
+`dist/` is the checked-in, editable application source. Local preview serves it directly; there is **no compilation step** that regenerates its HTML/CSS/JS. Deployment runs `npm run site:prepare` to copy those sources into the ignored `.tmp/site/` package with versioned asset paths and an inline startup loader. Edit `dist/`, never the staged package. Do not add a framework or transpiler without a task that needs it.
 
 | File | Responsibility |
 | --- | --- |
@@ -53,6 +55,7 @@ Validation for the American-only, current-dictionary implementation: **152 Node 
 | `dist/js/battle-feedback.js`, `battle-protocol.js` | Battle outcome feedback and shared protocol/dictionary versions. |
 | `server/`, `wrangler.jsonc` | Cloudflare routing, room auth, WebSockets, persisted state and durable alarms. |
 | `dist/js/word-bank.js` | The single dictionary-loading boundary; fetches and validates current classified targets and accepted answers. |
+| `dist/js/site-release.js` | Startup release check, bounded stale-page recovery and update checks before battle requests. Inlined into published HTML. |
 | `dist/index.html` | Static screens, instructions, metadata, accessible labels, credits and asset links. |
 | `dist/styles.css` | Responsive layout, tile/answer sizing, focus, colors and reduced-motion behavior. |
 | `dist/manifest.webmanifest`, `dist/assets/` | Home-screen metadata and SVG/PNG branding. |
@@ -60,10 +63,15 @@ Validation for the American-only, current-dictionary implementation: **152 Node 
 | `scripts/prepare-words.mjs`, `scripts/lib/` | Reproducible SCOWL extraction and ESDB-based target classification. |
 | `scripts/data/target-overrides.json` | Explicit reviewed classifications with reasons; unresolved source entries must not silently fall into a category. |
 | `scripts/serve.mjs` | Local static preview server; not a production backend. |
+| `scripts/prepare-site.mjs` | Stages one release in `.tmp/site/`, with HTML and an asset directory named by a content hash. Does not modify source. |
 | `tests/` | Built-in Node tests for rules, dictionary integrity and loading. |
-| `.github/workflows/pages.yml` | Test and publish the contents of `dist/` to GitHub Pages. |
+| `.github/workflows/pages.yml` | Test, configure, package and publish `.tmp/site/` to GitHub Pages. |
 
 Keep reusable puzzle rules in the shared core, mode-specific progression in the solo/battle controllers, browser behavior in the UI, and data access in the loader. Both browser battle validation and server validation use the same pure validator, but the authority must still validate every claim independently. Shared view helpers must not pause, advance rounds or award outcomes. Rendering uses DOM methods and `textContent`. URLs are relative or derived from `import.meta.url`; preserve hosting under both `/` and `/battle-words/`.
+
+Published JavaScript, dictionary JSON and CSS live together under `_releases/<content-hash>/`. Relative imports and dictionary URLs must stay within that release; never fall back to unversioned runtime files or retain historical release datasets. The root HTML embeds the startup loader and its release ID. Before importing the app, it fetches `release.json` with `no-store` and a unique query, then refreshes stale HTML once per advertised release while preserving the room fragment. Repeated stale HTML or missing assets must offer recovery rather than a reload loop. Local preview uses the `development` marker and needs no release manifest.
+
+Battle checks for a newer release before creating or joining, saves the entered name before refreshing, and offers **Update game** for a client/service version mismatch. A service deployed ahead of Pages must show that publication is still in progress rather than repeatedly reloading. Never automatically refresh active solo or battle play. Keep names and seat credentials scoped to the document's hosted path (for example `battle-words:/battle-words/:`), not the versioned module directory. Clear update query markers before constructing shared invitations.
 
 ## Rules and implementation details that are easy to regress
 
@@ -179,9 +187,9 @@ Use temporary test fixtures or injected clocks where appropriate; do not ship fi
 
 The configured origin at review time is [andrewtam123/battle-words](https://github.com/andrewtam123/battle-words), on `main`. Recheck remotes/branch/status before Git operations; repository state and deployment status can change independently of these documents.
 
-The authoritative frontend workflow is **Check and publish GitHub Pages** in `.github/workflows/pages.yml`. It runs `npm ci`, `npm test` and the Worker dry-run check, optionally injects the public `BATTLE_API_URL`, uploads **`dist/`**, and deploys successful `main` pushes/manual runs. Pull requests run checks without deployment. In repository Settings -> Pages, the source is **GitHub Actions**. Do not add GitHub's extra `static.yml` or Jekyll template: the existing workflow already publishes the correct directory.
+The authoritative frontend workflow is **Check and publish GitHub Pages** in `.github/workflows/pages.yml`. It runs `npm ci`, `npm test` and the Worker dry-run check, optionally injects the public `BATTLE_API_URL`, runs `npm run site:prepare`, uploads **`.tmp/site/`**, and deploys successful `main` pushes/manual runs. Configuration must precede packaging so the configured API URL participates in the release hash. Pull requests run checks and packaging without deployment. In repository Settings -> Pages, the source is **GitHub Actions**. Do not add GitHub's extra `static.yml` or Jekyll template: the existing workflow already publishes the correct directory.
 
-The expected Pages address is `https://andrewtam123.github.io/battle-words/`; confirm live status from the current successful deployment rather than assuming it from configuration. A push to `main` can publish immediately. Commit the project sources, tests, generated data and workflow; publish only `dist/`.
+The expected Pages address is `https://andrewtam123.github.io/battle-words/`; confirm live status from the current successful deployment rather than assuming it from configuration. A push to `main` can publish immediately. Commit the project sources, tests, generated data and workflow; publish only the staged `.tmp/site/` package. Verify live files using the published `release.json` ID; exact source bytes, including checkout line endings, determine the hash, so a local package need not have CI's ID.
 
 ## Review limitations
 

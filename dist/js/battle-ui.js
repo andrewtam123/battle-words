@@ -3,6 +3,7 @@ import { BATTLE_API_URL } from './battle-config.js';
 import { WORD_LENGTHS, entryWord, selectTileIds, tileForLetter, isValidAnswer } from './game-core.js';
 import { roundFeedback, roundReviewStatus } from './battle-feedback.js';
 import { battleScores } from './battle-scoring.js';
+import { checkForUpdate, freshPageUrl } from './site-release.js';
 import {
   element, renderAnswer, renderTiles, renderTimer, readGameKey,
   INVALID_FEEDBACK_MS, INVALID_FEEDBACK_TEXT,
@@ -36,8 +37,10 @@ export function createBattleUI({ onEnter, onExit }) {
   let shuffleWaiting = false;
   let publicResult = null;
   let lastResultsKey = '';
+  let updateRequired = false;
   const client = new BattleClient({
     apiUrl,
+    prefix: `battle-words:${new URL('./', location.href).pathname}:`,
     onState: receive,
     onStatus: () => { if (active) { renderConnection(); render(); } },
     onError: error => {
@@ -58,8 +61,12 @@ export function createBattleUI({ onEnter, onExit }) {
   $('name').value = client.name || '';
 
   function showError(error) {
-    $('message').textContent = error.message || 'Couldn’t reach the room. Please try again.';
+    updateRequired = error.code === 'VERSION_MISMATCH';
+    $('message').textContent = updateRequired
+      ? 'An update is available. Update the game to continue.'
+      : error.message || 'Couldn’t reach the room. Please try again.';
     $('retry').hidden = error.code === 'ROOM_OUTDATED';
+    $('retry').textContent = updateRequired ? 'Update game' : 'Try again';
     if (error.code === 'ROOM_OUTDATED') {
       state = null;
       joining = joiningBlocked = true;
@@ -68,6 +75,32 @@ export function createBattleUI({ onEnter, onExit }) {
       $('setup-note').textContent = '';
       render();
     }
+  }
+
+  async function refreshBeforeBattle(current = operation) {
+    const update = await checkForUpdate({
+      currentId: document.querySelector('meta[name="game-release"]').content,
+      href: location.href,
+    });
+    if (!update || current !== operation || !active) return false;
+    $('message').textContent = 'Updating the game…';
+    const page = new URL(update);
+    if (!roomId) page.hash = 'battle';
+    location.replace(page.href);
+    return true;
+  }
+
+  async function updateGame() {
+    const current = operation;
+    $('retry').disabled = true;
+    try {
+      if (!await refreshBeforeBattle(current) && current === operation && active) {
+        $('message').textContent = 'The update is still being published. Please try again shortly.';
+      }
+    } catch {
+      // Explicit recovery also works when the release check itself is unavailable.
+      if (current === operation && active) location.replace(freshPageUrl(location.href));
+    } finally { $('retry').disabled = false; }
   }
 
   function shareLink() {
@@ -106,7 +139,7 @@ export function createBattleUI({ onEnter, onExit }) {
     client.disconnect();
     state = publicResult = roomId = null;
     lastResultsKey = '';
-    joining = busy = false;
+    joining = busy = updateRequired = false;
     joiningBlocked = false;
     clearEntry();
     setHash(null);
@@ -122,6 +155,7 @@ export function createBattleUI({ onEnter, onExit }) {
   }
 
   async function openRoom(id) {
+    const mayRefresh = !state || ['lobby', 'finished', 'expired'].includes(state.phase);
     enter();
     const current = ++operation;
     client.disconnect();
@@ -131,6 +165,7 @@ export function createBattleUI({ onEnter, onExit }) {
     joining = true;
     joiningBlocked = false;
     busy = true;
+    updateRequired = false;
     clearEntry();
     setHash(id);
     $('message').textContent = '';
@@ -141,6 +176,8 @@ export function createBattleUI({ onEnter, onExit }) {
     render();
     try {
       if (!apiUrl) throw new Error('Online battles aren’t available here yet.');
+      if (mayRefresh && await refreshBeforeBattle(current)) return;
+      if (current !== operation || !active) return;
       const info = await client.open(id);
       if (current !== operation || !active) return;
       if (info.phase === 'finished') {
@@ -176,12 +213,15 @@ export function createBattleUI({ onEnter, onExit }) {
 
   async function startOrJoin(event) {
     event.preventDefault();
-    if (busy || !bank || !apiUrl) return;
+    if (!active || busy || joiningBlocked || updateRequired || !bank || !apiUrl) return;
     const current = ++operation;
     busy = true;
     $('message').textContent = '';
     render();
     try {
+      client.saveName($('name').value);
+      if (await refreshBeforeBattle(current)) return;
+      if (current !== operation || !active) return;
       const response = joining ? await client.join(roomId, $('name').value) : await client.create($('name').value);
       if (current !== operation || !active) return;
       roomId = response.id || response.state.id;
@@ -273,9 +313,11 @@ export function createBattleUI({ onEnter, onExit }) {
     if (resetButtons) $('join').hidden = !joining || joiningBlocked;
     $('create').hidden = joining;
     $('paste').hidden = joining;
-    $('create').disabled = $('join').disabled = busy || !bank || !apiUrl;
+    $('create').disabled = $('join').disabled = busy || !bank || !apiUrl || updateRequired;
     $('name').disabled = busy;
-    if (!bank && !busy && apiUrl && !joining) $('setup-note').textContent = 'Load the word bank before starting. You can retry from Home.';
+    if (!busy && apiUrl && !joining) $('setup-note').textContent = bank
+      ? 'Invite a friend. Find the words first.'
+      : 'Load the word bank before starting. You can retry from Home.';
   }
 
   function renderPlayers(container, players, scores, seat) {
@@ -402,7 +444,7 @@ export function createBattleUI({ onEnter, onExit }) {
   $('ready').addEventListener('click', () => client.ready());
   $('copy').addEventListener('click', event => copyLink(event.currentTarget));
   $('copy-results').addEventListener('click', event => copyLink(event.currentTarget));
-  $('retry').addEventListener('click', () => roomId ? openRoom(roomId) : setup());
+  $('retry').addEventListener('click', () => updateRequired ? updateGame() : roomId ? openRoom(roomId) : setup());
   $('join-open').addEventListener('click', () => {
     const id = roomFromLink($('link').value.trim());
     if (id) openRoom(id); else $('message').textContent = 'Paste a Battle Words room link.';
@@ -432,9 +474,14 @@ export function createBattleUI({ onEnter, onExit }) {
   });
   window.addEventListener('pageshow', event => { if (event.persisted && active && roomId && !publicResult) openRoom(roomId); });
   window.addEventListener('pagehide', () => { if (active) client.disconnect(); });
+  $('open').disabled = false;
   return {
     get active() { return active; },
     setBank(value) { bank = value; if (active) render(); },
-    start() { const id = roomFromLink(location.href); if (id) openRoom(id); },
+    start() {
+      const id = roomFromLink(location.href);
+      if (id) openRoom(id);
+      else if (location.hash === '#battle') setup();
+    },
   };
 }
